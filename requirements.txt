@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+streamlit
+starlette<1.0
+langgraph
+groq
+python-dotenv
+requests
+pydantic
+reportlab
