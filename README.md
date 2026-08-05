@@ -1,14 +1,87 @@
 # Multi-Agent Architecture Intelligence System
 
-A small semester project that accepts a software project idea and sends it through five AI agents:
+A simple Software Engineering semester project that uses multiple AI agents to
+turn a project idea into an initial software architecture report.
 
-1. Requirement Agent
-2. Project Planner Agent
-3. Architecture Agent
-4. Database Agent
-5. Reviewer Agent
+## Description
 
-The final output is shown as agent-by-agent tabs and can be downloaded as a PDF.
+The user enters a software project idea, such as:
+
+```text
+Build an Online Food Delivery System
+```
+
+The system sends the idea through five sequential agents. Each agent generates
+one part of the final report, and the Streamlit interface displays the output
+agent by agent. The final report can also be downloaded as a PDF.
+
+## Features
+
+- FastAPI backend with one `/analyze` endpoint
+- Streamlit frontend with a simple input form
+- LangGraph sequential multi-agent workflow
+- Groq API for AI-generated responses
+- Agent-by-agent report display
+- Full report view
+- PDF report download
+- JSON history storage
+
+## Agent Workflow
+
+```text
+Requirement Agent
+      ↓
+Project Planner Agent
+      ↓
+Architecture Agent
+      ↓
+Database Agent
+      ↓
+Reviewer Agent
+      ↓
+Final Report
+```
+
+## Agent Responsibilities
+
+| Agent | Output |
+| --- | --- |
+| Requirement Agent | Functional requirements, non-functional requirements, user stories |
+| Project Planner Agent | WBS, milestones, sprint plan |
+| Architecture Agent | Suggested architecture, components, tech stack |
+| Database Agent | Tables, fields, relationships |
+| Reviewer Agent | Completeness score, suggestions, final summary |
+
+## Tech Stack
+
+- Python
+- FastAPI
+- Streamlit
+- LangGraph
+- Groq API
+- Pydantic
+- ReportLab
+
+## Project Structure
+
+```text
+agents/
+    requirement.py
+    planner.py
+    architect.py
+    database.py
+    reviewer.py
+
+workflow.py
+prompts.py
+frontend.py
+main.py
+utils.py
+history.json
+requirements.txt
+.env
+README.md
+```
 
 ## Setup
 
@@ -19,25 +92,37 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If Streamlit shows a Starlette `GZipResponder` error, reinstall the pinned versions:
-
-```bash
-pip install --upgrade --force-reinstall -r requirements.txt
-```
-
 Edit `.env` and add your Groq API key:
 
 ```text
 GROQ_API_KEY=your_real_key_here
 ```
 
-## Run the FastAPI Server
+## Run the Backend
 
 ```bash
 uvicorn main:app --reload
 ```
 
-Test the API. It returns markdown text:
+The API will run at:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Run the Frontend
+
+Open a second terminal:
+
+```bash
+cd multi-agent-architecture-intelligence
+source .venv/bin/activate
+streamlit run frontend.py
+```
+
+Then open the Streamlit URL shown in the terminal.
+
+## API Example
 
 ```bash
 curl -X POST http://127.0.0.1:8000/analyze \
@@ -45,25 +130,9 @@ curl -X POST http://127.0.0.1:8000/analyze \
   -d '{"project":"Build an Online Food Delivery System"}'
 ```
 
-## Run the Streamlit UI
+## History Format
 
-Open a second terminal and run:
-
-```bash
-streamlit run frontend.py
-```
-
-Then enter a project idea and click **Generate Report**.
-
-The UI shows:
-
-- Separate tabs for each agent output
-- A full report tab
-- A PDF download button
-
-## Output
-
-Each analysis is saved to `history.json`:
+Each generated report is saved in `history.json`:
 
 ```json
 [
@@ -73,3 +142,8 @@ Each analysis is saved to `history.json`:
   }
 ]
 ```
+
+## Phase 1 Scope
+
+This phase focuses on a simple working prototype. The workflow is sequential,
+with no branching, memory, authentication, database server, or complex UI.
