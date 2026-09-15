@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Multi-agent software architecture report generator">
+  <title>MARIS | Architecture Intelligence</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="MARIS home">
+      <span class="brand-mark" aria-hidden="true">M</span>
+      <span><strong>MARIS</strong><small>Architecture Intelligence</small></span>
+    </a>
+    <div class="top-actions">
+      <div class="system-status"><span></span>Phase 2</div>
+      <div id="account" class="account hidden">
+        <span id="userName"></span>
+        <button id="logout" type="button">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <section id="authScreen" class="auth-screen">
+    <form id="authForm" class="auth-form">
+      <p class="eyebrow">Private workspace</p>
+      <h1>Sign in to MARIS</h1>
+      <p>Your reports and history stay connected to your account on this app.</p>
+      <label for="username">Username</label>
+      <input id="username" autocomplete="username" placeholder="e.g. raghav_404" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password"
+        placeholder="At least 6 characters" required>
+      <p id="authStatus" class="auth-status" role="alert"></p>
+      <div class="auth-actions">
+        <button class="primary-button" type="submit">Sign in</button>
+        <button id="register" class="secondary-button" type="button">Create account</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="appShell" class="app-layout hidden">
+    <aside class="sidebar">
+      <div class="sidebar-heading">
+        <p class="eyebrow">New analysis</p>
+        <h1>Describe your project</h1>
+        <p>Give the agents enough context to make useful engineering decisions.</p>
+      </div>
+
+      <form id="projectForm">
+        <label for="project">Project idea</label>
+        <textarea id="project" rows="6" maxlength="1000"
+          placeholder="Build an online food delivery system..." required></textarea>
+        <div class="field-help">
+          <span id="charCount">0 / 1000</span>
+          <button id="example" class="text-button" type="button">Use example</button>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label for="projectType">Project type</label>
+            <select id="projectType">
+              <option>General</option>
+              <option>Web App</option>
+              <option>Mobile App</option>
+              <option>AI App</option>
+              <option>E-commerce</option>
+            </select>
+          </div>
+          <div>
+            <label for="depth">Report depth</label>
+            <select id="depth">
+              <option>Short</option>
+              <option selected>Medium</option>
+              <option>Detailed</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="context-field">
+          <summary>Add rubric or context <span>Optional</span></summary>
+          <label class="sr-only" for="context">Rubric or project context</label>
+          <textarea id="context" rows="5"
+            placeholder="Paste professor feedback, constraints, or evaluation criteria..."></textarea>
+        </details>
+
+        <div id="status" class="form-status" role="alert" aria-live="polite"></div>
+        <div class="form-actions">
+          <button id="generate" class="primary-button" type="submit">
+            <span aria-hidden="true">&#10022;</span> Generate report
+          </button>
+          <button id="clear" class="secondary-button" type="button">Clear</button>
+        </div>
+      </form>
+
+      <section class="history-section" aria-labelledby="historyTitle">
+        <div class="section-title">
+          <h2 id="historyTitle">Recent reports</h2>
+          <span id="historyCount">0</span>
+        </div>
+        <div id="history" class="history-list">
+          <p class="muted">No reports yet.</p>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main-content">
+      <section id="emptyState" class="empty-state">
+        <div class="pipeline" aria-label="Agent workflow">
+          <span>RQ</span><i></i><span>PL</span><i></i><span>AR</span>
+          <i></i><span>DB</span><i></i><span>RV</span>
+        </div>
+        <p class="eyebrow">Multi-agent workspace</p>
+        <h2>From project idea to engineering blueprint.</h2>
+        <p>Your requirements, plan, architecture, database design, novelty analysis,
+          and review will appear here.</p>
+      </section>
+
+      <section id="runningState" class="running-state hidden" aria-live="polite">
+        <div class="running-copy">
+          <p class="eyebrow">Analysis in progress</p>
+          <h2 id="runningTitle">Agents are reading your project brief</h2>
+          <p>The workflow runs each specialist in sequence.</p>
+        </div>
+        <div id="agentProgress" class="agent-progress"></div>
+      </section>
+
+      <section id="workspace" class="workspace hidden">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Generated report</p>
+            <h2 id="reportTitle">Architecture Intelligence Report</h2>
+            <div class="report-meta">
+              <span id="reportType">General</span>
+              <span id="reportDepth">Medium depth</span>
+              <span id="reportScore" class="score hidden"></span>
+            </div>
+          </div>
+          <div class="export-actions" aria-label="Report actions">
+            <button id="copy" class="toolbar-button" type="button" title="Copy report">
+              <span aria-hidden="true">&#10697;</span> Copy
+            </button>
+            <button id="md" class="toolbar-button" type="button" title="Download Markdown">
+              <span aria-hidden="true">&darr;</span> Markdown
+            </button>
+            <button id="pdf" class="primary-button compact" type="button" title="Download PDF">
+              <span aria-hidden="true">&darr;</span> PDF
+            </button>
+          </div>
+        </header>
+
+        <nav id="tabs" class="agent-tabs" aria-label="Report sections"></nav>
+
+        <div class="document-toolbar">
+          <div>
+            <strong id="sectionTitle">Full Report</strong>
+            <span id="sectionRole">Combined agent output</span>
+          </div>
+          <div class="document-controls">
+            <span id="wordCount">0 words</span>
+            <div class="view-switch" aria-label="Document view">
+              <button id="previewMode" class="active" type="button" aria-pressed="true">Preview</button>
+              <button id="editMode" type="button" aria-pressed="false">Edit</button>
+            </div>
+          </div>
+        </div>
+
+        <form id="refineForm" class="refine-bar hidden">
+          <label for="refineInput">Refine this section</label>
+          <input id="refineInput" maxlength="600"
+            placeholder="Example: add security requirements for payment data">
+          <button id="refine" class="toolbar-button" type="submit">Update</button>
+        </form>
+
+        <article id="preview" class="report-document"></article>
+        <textarea id="editor" class="report-editor hidden" aria-label="Edit report section"></textarea>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
