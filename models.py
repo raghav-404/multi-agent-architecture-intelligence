@@ -31,6 +31,19 @@ class RequirementSet(StrictModel):
     assumptions: list[str]
 
 
+class RequirementConflict(StrictModel):
+    id: str
+    requirement_ids: list[str]
+    title: str
+    explanation: str
+    severity: Literal["low", "medium", "high"]
+    resolution: str
+
+
+class ConflictReport(StrictModel):
+    conflicts: list[RequirementConflict]
+
+
 class ArchitectureComponent(StrictModel):
     id: str
     name: str

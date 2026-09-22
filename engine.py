@@ -1,4 +1,5 @@
-from models import ArchitectureEvaluation, CriterionScore, EvaluationResult
+from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
+                    EvaluationResult, RequirementConflict)
 
 
 CRITERIA = ["requirement_fit", "scalability", "security", "performance",
@@ -23,11 +24,68 @@ ATTRIBUTE_ALIASES = {
     "availability": ["available", "uptime", "reliable", "fault tolerance"],
 }
 
+CONFLICT_RULES = [
+    ("security", "low_latency", "Security controls vs low latency", "medium",
+     "Strong authentication and encryption can add processing and network overhead.",
+     "Set an explicit latency budget and measure the selected security controls."),
+    ("low_cost", "availability", "Low cost vs high availability", "high",
+     "Redundancy and failover improve availability but require additional infrastructure.",
+     "Define an uptime target and fund only the redundancy needed for that target."),
+    ("consistency", "geo_availability", "Strong consistency vs geographic availability", "high",
+     "Synchronous cross-region consistency can reduce availability during network partitions.",
+     "Choose which operations require strong consistency and allow eventual consistency elsewhere."),
+    ("privacy", "analytics", "Data privacy vs broad analytics", "medium",
+     "Detailed analytics can conflict with data-minimization and retention requirements.",
+     "Anonymize analytics data and document retention and consent boundaries."),
+]
+
+CONFLICT_TAGS = {
+    "security": ["security", "secure", "authentication", "encryption"],
+    "low_latency": ["low latency", "response time", "real time", "real-time"],
+    "low_cost": ["low cost", "affordable", "budget", "cheap"],
+    "availability": ["high availability", "uptime", "always available", "fault tolerant"],
+    "consistency": ["strong consistency", "strict consistency", "immediate consistency"],
+    "geo_availability": ["multi region", "multi-region", "global availability", "region failure"],
+    "privacy": ["privacy", "data minimization", "personal data", "gdpr"],
+    "analytics": ["analytics", "tracking", "behavior data", "behaviour data"],
+}
+
 
 def style_scores(style):
     name = style.lower().replace("-", " ")
     match = next((key for key in STYLE_SCORES if key in name), None)
     return STYLE_SCORES.get(match, [6] * 7), match or "custom"
+
+
+def detect_requirement_conflicts(requirement_set):
+    tagged = {}
+    for item in requirement_set.requirements:
+        text = " ".join([item.quality_attribute, item.statement, *item.keywords]).lower()
+        for tag, phrases in CONFLICT_TAGS.items():
+            if any(phrase in text for phrase in phrases):
+                tagged.setdefault(tag, []).append(item.id)
+
+    conflicts = []
+    for left, right, title, severity, explanation, resolution in CONFLICT_RULES:
+        pairs = [(a, b) for a in tagged.get(left, []) for b in tagged.get(right, []) if a != b]
+        if pairs:
+            conflicts.append(RequirementConflict(
+                id=f"CON-{len(conflicts) + 1:02d}", requirement_ids=list(pairs[0]),
+                title=title, explanation=explanation, severity=severity, resolution=resolution,
+            ))
+    return ConflictReport(conflicts=conflicts)
+
+
+def conflicts_markdown(report):
+    if not report.conflicts:
+        return "No rule-supported requirement conflicts were detected."
+    lines = []
+    for item in report.conflicts:
+        lines += [f"### {item.id}: {item.title}",
+                  f"**Requirements:** {' ↔ '.join(item.requirement_ids)}  ",
+                  f"**Severity:** {item.severity.title()}  ", item.explanation,
+                  f"\n**Suggested resolution:** {item.resolution}\n"]
+    return "\n".join(lines)
 
 
 def weights_for(requirements):

@@ -5,12 +5,13 @@ import {
   AlignLeft, Archive, ArrowRight, Bot, Check, ChevronDown, Clipboard,
   Database, Download, FileText, FlaskConical, LayoutDashboard, LoaderCircle,
   LogOut, Menu, Network, Pencil, Plus, Search, ShieldCheck, Sparkles,
-  TestTube2, UserRound, X
+  TestTube2, TriangleAlert, UserRound, X
 } from "lucide-react";
 
 const SECTIONS = [
   { name: "clarification", label: "Clarification", role: "Requirement discovery", icon: Search },
   { name: "requirements", label: "Requirements", role: "Requirement agent", icon: AlignLeft },
+  { name: "conflicts", label: "Conflicts", role: "Deterministic rule engine", icon: TriangleAlert },
   { name: "plan", label: "Project plan", role: "Planning agent", icon: LayoutDashboard },
   { name: "architecture", label: "Architecture", role: "Architecture agent", icon: Network },
   { name: "evaluation", label: "Evaluation", role: "Deterministic Python engine", icon: FlaskConical },
@@ -24,7 +25,7 @@ const SECTIONS = [
 ];
 
 const PROGRESS = [
-  "Clarifying assumptions", "Structuring requirements", "Building the project plan",
+  "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
   "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
   "Building traceability", "Creating the test plan", "Reviewing the report", "Preparing feedback"
 ];

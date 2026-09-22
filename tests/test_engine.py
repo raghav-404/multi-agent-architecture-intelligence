@@ -1,6 +1,6 @@
 import unittest
 
-from engine import evaluate_architectures
+from engine import detect_requirement_conflicts, evaluate_architectures
 from models import ArchitectureOption, RequirementSet
 from tests.test_workflow import REQUIREMENTS, option
 
@@ -26,6 +26,21 @@ class EvaluationTests(unittest.TestCase):
         fit = result.evaluations[0].scores[0]
         self.assertEqual(fit.criterion, "requirement_fit")
         self.assertEqual(fit.score, 0)
+
+    def test_conflict_requires_both_explicit_sides(self):
+        data = REQUIREMENTS.model_dump()
+        data["requirements"].append({
+            "id": "NFR-02", "category": "non_functional",
+            "statement": "Provide 99.99% high availability", "priority": "must",
+            "quality_attribute": "availability", "keywords": ["uptime"],
+        })
+        report = detect_requirement_conflicts(RequirementSet.model_validate(data))
+        self.assertEqual(len(report.conflicts), 1)
+        self.assertEqual(report.conflicts[0].requirement_ids, ["NFR-01", "NFR-02"])
+
+    def test_no_conflict_is_invented(self):
+        report = detect_requirement_conflicts(REQUIREMENTS)
+        self.assertEqual(report.conflicts, [])
 
 
 if __name__ == "__main__":
