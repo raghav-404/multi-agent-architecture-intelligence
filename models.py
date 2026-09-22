@@ -215,3 +215,15 @@ class ArchitectureVersion(StrictModel):
     critical_risks: int
     high_risks: int
     changes: list[str]
+
+
+class ImpactResult(StrictModel):
+    change_request: str
+    affected_requirements: list[str]
+    affected_components: list[str]
+    affected_apis: list[str]
+    affected_database_entities: list[str]
+    affected_tests: list[str]
+    affected_risks: list[str]
+    impact_level: Literal["none", "low", "medium", "high"]
+    regression_suggestions: list[str]

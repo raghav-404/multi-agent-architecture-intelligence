@@ -2,6 +2,8 @@ import json
 import os
 import hashlib
 import secrets
+import uuid
+from datetime import datetime, timezone
 from io import BytesIO
 from html import escape
 
@@ -99,16 +101,31 @@ def verify_user(username, password):
     return secrets.compare_digest(saved, password_hash(password, salt))
 
 
-def save_history(username, project, report):
+def save_history(username, project, result):
     path = os.path.join(DATA_DIR, "history.json")
     history = read_json(path, [])
-    history.append({"username": username, "project": project, "report": report})
+    analysis_id = uuid.uuid4().hex[:12]
+    stored_result = {**result, "analysis_id": analysis_id}
+    history.append({
+        "id": analysis_id, "username": username, "project": project,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "report": result["report"], "result": stored_result,
+    })
     write_json(path, history)
+    return analysis_id
 
 
 def load_history(username):
     history = read_json(os.path.join(DATA_DIR, "history.json"), [])
-    return [item for item in history if item.get("username") == username]
+    items = [item for item in history if item.get("username") == username]
+    for item in items:
+        item.setdefault("id", "")
+        item.setdefault("result", {"report": item.get("report", "")})
+    return items
+
+
+def get_history_item(username, analysis_id):
+    return next((item for item in load_history(username) if item["id"] == analysis_id), None)
 
 
 def make_pdf(text):

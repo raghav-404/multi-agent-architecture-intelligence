@@ -1,6 +1,6 @@
 import unittest
 
-from engine import (build_traceability, check_consistency,
+from engine import (analyze_change_impact, build_traceability, check_consistency,
                     detect_requirement_conflicts, evaluate_architectures)
 from models import ArchitectureOption, RequirementSet, TestPlan
 from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
@@ -68,6 +68,16 @@ class EvaluationTests(unittest.TestCase):
         self.assertTrue({"US-01", "A1-C1", "A1-API1", "DBE-01", "TC-01"}.issubset(fr_targets))
         self.assertEqual(graph.coverage_percentage, 50)
         self.assertEqual(graph.uncovered_requirements, ["NFR-01"])
+
+    def test_change_impact_traverses_traceability_graph(self):
+        graph = build_traceability(
+            REQUIREMENTS, ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            DATABASE, TESTS)
+        impact = analyze_change_impact("Students can book rooms from a mobile app", REQUIREMENTS, graph)
+        self.assertEqual(impact.affected_requirements, ["FR-01"])
+        self.assertIn("A1-C1", impact.affected_components)
+        self.assertIn("TC-01", impact.affected_tests)
+        self.assertIn("A1-RISK1", impact.affected_risks)
 
 
 if __name__ == "__main__":

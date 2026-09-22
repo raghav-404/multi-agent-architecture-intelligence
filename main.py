@@ -8,7 +8,10 @@ from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from agents.refine import refine_agent
-from utils import load_history, make_pdf, register_user, save_history, verify_user
+from engine import analyze_change_impact, impact_markdown
+from models import RequirementSet, TraceabilityGraph
+from utils import (get_history_item, load_history, make_pdf, register_user,
+                   save_history, verify_user)
 from workflow import run_workflow
 
 
@@ -43,6 +46,11 @@ class RefineRequest(BaseModel):
     section: str
     current_text: str
     instruction: str
+
+
+class ImpactRequest(BaseModel):
+    analysis_id: str
+    change_request: str
 
 
 def current_user(request):
@@ -105,7 +113,7 @@ def analyze(data: AnalyzeRequest, request: Request):
 
     try:
         result = run_workflow(data.project, data.project_type, data.depth, data.context)
-        save_history(username, data.project, result["report"])
+        result["analysis_id"] = save_history(username, data.project, result)
         return result
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
@@ -131,6 +139,23 @@ def refine(data: RefineRequest, request: Request):
 @app.get("/history")
 def history(request: Request):
     return load_history(current_user(request))
+
+
+@app.post("/impact")
+def impact(data: ImpactRequest, request: Request):
+    username = current_user(request)
+    item = get_history_item(username, data.analysis_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    analysis = item.get("result", {}).get("analysis", {})
+    if not analysis.get("traceability"):
+        raise HTTPException(status_code=400, detail="This older report has no structured traceability data.")
+    if len(data.change_request.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Please enter a clearer change request.")
+    requirements = RequirementSet.model_validate(analysis["requirements"])
+    graph = TraceabilityGraph.model_validate(analysis["traceability"])
+    result = analyze_change_impact(data.change_request, requirements, graph)
+    return {**result.model_dump(), "markdown": impact_markdown(result)}
 
 
 @app.post("/pdf")

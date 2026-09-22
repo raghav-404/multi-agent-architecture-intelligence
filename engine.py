@@ -1,6 +1,8 @@
+import re
+
 from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
                     ConsistencyIssue, ConsistencyReport, EvaluationResult,
-                    RequirementConflict, TraceEdge, TraceNode,
+                    ImpactResult, RequirementConflict, TraceEdge, TraceNode,
                     TraceabilityGraph)
 
 
@@ -338,4 +340,72 @@ def versions_markdown(versions):
         lines += [f"- {change}" for change in versions[-1].changes]
     else:
         lines += ["\nNo refinement was required after the first review."]
+    return "\n".join(lines)
+
+
+def analyze_change_impact(change_request, requirements, graph):
+    stop_words = {"the", "and", "for", "with", "should", "now", "able", "using",
+                  "from", "into", "that", "this", "have", "will", "user", "users"}
+
+    def words(text):
+        return {word for word in re.findall(r"[a-z0-9]+", text.lower())
+                if len(word) > 2 and word not in stop_words}
+
+    change_words = words(change_request)
+    matches = []
+    for item in requirements.requirements:
+        source = words(" ".join([item.statement, item.quality_attribute, *item.keywords]))
+        score = len(change_words & source)
+        if score:
+            matches.append((score, item.id))
+    affected_requirements = [identifier for _, identifier in sorted(matches, reverse=True)]
+
+    node_types = {item.id: item.node_type for item in graph.nodes}
+    reached = set(affected_requirements)
+    frontier = list(affected_requirements)
+    while frontier:
+        current = frontier.pop(0)
+        for edge in [item for item in graph.edges if item.source == current]:
+            if edge.target not in reached:
+                reached.add(edge.target)
+                frontier.append(edge.target)
+
+    def ids(node_type):
+        return sorted(item for item in reached if node_types.get(item) == node_type)
+
+    components = ids("component")
+    apis = ids("api")
+    entities = ids("database_entity")
+    tests = ids("test")
+    risks = ids("risk")
+    size = len(components) + len(apis) + len(entities) + len(tests)
+    level = "none" if not affected_requirements else "high" if size >= 8 else "medium" if size >= 4 else "low"
+    suggestions = [f"Re-run {test_id} after implementing the change." for test_id in tests]
+    if affected_requirements and not tests:
+        suggestions.append("Add regression tests for the affected requirements.")
+    return ImpactResult(
+        change_request=change_request, affected_requirements=affected_requirements,
+        affected_components=components, affected_apis=apis,
+        affected_database_entities=entities, affected_tests=tests,
+        affected_risks=risks, impact_level=level,
+        regression_suggestions=suggestions,
+    )
+
+
+def impact_markdown(result):
+    rows = [
+        ("Requirements", result.affected_requirements),
+        ("Components", result.affected_components),
+        ("APIs", result.affected_apis),
+        ("Database entities", result.affected_database_entities),
+        ("Tests", result.affected_tests),
+        ("Risks", result.affected_risks),
+    ]
+    lines = ["### Change Request", result.change_request,
+             f"\n**Architecture impact:** {result.impact_level.title()}",
+             "\n| Artifact | Count | Affected IDs |", "| --- | --- | --- |"]
+    lines += [f"| {label} | {len(values)} | {', '.join(values) or 'None'} |" for label, values in rows]
+    lines += ["\n### Regression Suggestions"]
+    lines += [f"- {item}" for item in result.regression_suggestions] or ["- No regression tests identified."]
+    lines += ["\n*This is rule-based architectural impact analysis, not a production change prediction.*"]
     return "\n".join(lines)

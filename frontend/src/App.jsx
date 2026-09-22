@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { marked } from "marked";
 import {
   AlignLeft, Archive, ArrowRight, Bot, Check, ChevronDown, Clipboard,
-  Database, Download, FileText, FlaskConical, LayoutDashboard, LoaderCircle,
+  Database, Download, FileText, FlaskConical, GitBranch, LayoutDashboard, LoaderCircle,
   LogOut, Menu, Network, Pencil, Plus, Search, ShieldCheck, Sparkles,
   ShieldAlert, TestTube2, TriangleAlert, UserRound, X
 } from "lucide-react";
@@ -24,8 +24,11 @@ const SECTIONS = [
   { name: "refinement", label: "Refinement", role: "Bounded improvement loop", icon: Sparkles },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },
+  { name: "impact", label: "Change impact", role: "Traceability traversal", icon: GitBranch },
   { name: "report", label: "Full report", role: "Combined agent output", icon: FileText }
 ];
+
+const PIPELINE_SECTIONS = SECTIONS.filter(item => !["impact", "report"].includes(item.name));
 
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
@@ -174,7 +177,7 @@ function AgentPipeline({ running, stage }) {
     <section className="pipeline-panel">
       <div className="panel-title"><div><p className="overline">LangGraph workflow</p><h2>Agent pipeline</h2></div><span>{running ? `${Math.min(stage + 1, PROGRESS.length)}/${PROGRESS.length}` : "Sequential"}</span></div>
       <div className="pipeline-list">
-        {SECTIONS.slice(0, -1).map((agent, index) => {
+        {PIPELINE_SECTIONS.map((agent, index) => {
           const Icon = agent.icon;
           const state = running ? (index < stage ? "done" : index === stage ? "active" : "waiting") : "ready";
           return <div className={`pipeline-row ${state}`} key={agent.name}>
@@ -228,9 +231,13 @@ function ReportWorkspace({ project, metadata, result, setResult, onToast }) {
   const [editing, setEditing] = useState(false);
   const [refinement, setRefinement] = useState("");
   const [refining, setRefining] = useState(false);
+  const [changeRequest, setChangeRequest] = useState("");
+  const [impacting, setImpacting] = useState(false);
 
-  const available = SECTIONS.filter(section => section.name === "report" || result[section.name]);
+  const available = SECTIONS.filter(section => section.name === "report" || result[section.name]
+    || (section.name === "impact" && result.analysis_id));
   const section = SECTIONS.find(item => item.name === active);
+  const canRefine = !["report", "impact"].includes(active);
   const words = draft.trim() ? draft.trim().split(/\s+/).length : 0;
   const score = (result.review || result.report || "").match(/(\d+(?:\.\d+)?)\s*\/\s*10/);
 
@@ -294,6 +301,25 @@ function ReportWorkspace({ project, metadata, result, setResult, onToast }) {
     }
   }
 
+  async function analyzeImpact(event) {
+    event.preventDefault();
+    if (changeRequest.trim().length < 5) return;
+    setImpacting(true);
+    try {
+      const data = await api("/impact", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analysis_id: result.analysis_id, change_request: changeRequest })
+      });
+      setDraft(data.markdown);
+      setResult(current => ({ ...current, impact: data.markdown, impact_data: data }));
+      onToast("Change impact analyzed");
+    } catch (err) {
+      onToast(err.message);
+    } finally {
+      setImpacting(false);
+    }
+  }
+
   return (
     <div className="report-workspace">
       <header className="report-header">
@@ -312,9 +338,10 @@ function ReportWorkspace({ project, metadata, result, setResult, onToast }) {
         <section className="document-panel">
           <div className="document-head">
             <div><strong>{section.label}</strong><span>{section.role}</span></div>
-            <div className="document-tools"><span>{words.toLocaleString()} words</span>{active !== "report" && <div className="segmented compact"><button className={!editing ? "active" : ""} onClick={() => setEditing(false)}><FileText size={14} />Preview</button><button className={editing ? "active" : ""} onClick={() => setEditing(true)}><Pencil size={14} />Edit</button></div>}</div>
+            <div className="document-tools"><span>{words.toLocaleString()} words</span>{canRefine && <div className="segmented compact"><button className={!editing ? "active" : ""} onClick={() => setEditing(false)}><FileText size={14} />Preview</button><button className={editing ? "active" : ""} onClick={() => setEditing(true)}><Pencil size={14} />Edit</button></div>}</div>
           </div>
-          {active !== "report" && <form className="refine-form" onSubmit={refine}><Sparkles size={16} /><input value={refinement} onChange={e => setRefinement(e.target.value)} maxLength={600} placeholder={`Ask the ${section.label.toLowerCase()} agent to revise this section...`} /><button className="button secondary" disabled={refining}>{refining ? <LoaderCircle className="spin" size={15} /> : <ArrowRight size={15} />}Update</button></form>}
+          {canRefine && <form className="refine-form" onSubmit={refine}><Sparkles size={16} /><input value={refinement} onChange={e => setRefinement(e.target.value)} maxLength={600} placeholder={`Ask the ${section.label.toLowerCase()} agent to revise this section...`} /><button className="button secondary" disabled={refining}>{refining ? <LoaderCircle className="spin" size={15} /> : <ArrowRight size={15} />}Update</button></form>}
+          {active === "impact" && <form className="refine-form" onSubmit={analyzeImpact}><GitBranch size={16} /><input value={changeRequest} onChange={e => setChangeRequest(e.target.value)} maxLength={600} placeholder="Describe a proposed requirement change..." /><button className="button secondary" disabled={impacting}>{impacting ? <LoaderCircle className="spin" size={15} /> : <ArrowRight size={15} />}Analyze</button></form>}
           {editing ? <textarea className="report-editor" value={draft} onChange={e => { setDraft(e.target.value); setResult(current => ({ ...current, [active]: e.target.value })); }} aria-label={`Edit ${section.label}`} /> : <Markdown text={draft} />}
         </section>
       </div>
@@ -375,7 +402,7 @@ export default function App() {
 
   function openHistory(item) {
     setForm(current => ({ ...current, project: item.project }));
-    setResult({ report: item.report });
+    setResult(item.result || { report: item.report });
     setWorkspaceVersion(value => value + 1);
     setMetadata({ type: "Saved report", depth: "History" });
     setSidebarOpen(false);
