@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from models import ArchitectureSet, RequirementSet
+from models import ArchitectureSet, DatabaseDesign, RequirementSet, TestPlan
 from workflow import run_workflow
 
 
@@ -27,13 +27,28 @@ def option(identifier, style):
     }
 
 
+DATABASE = DatabaseDesign.model_validate({
+    "engine": "PostgreSQL", "rationale": "Transactional bookings.",
+    "entities": [{"id": "DBE-01", "name": "Booking", "purpose": "Stores bookings",
+                  "fields": [{"name": "id", "data_type": "uuid", "constraints": ["primary key"]}],
+                  "supports_requirements": ["FR-01"]}],
+    "relationships": [], "risks": ["Single instance"],
+})
+
+TESTS = TestPlan.model_validate({
+    "test_cases": [{"id": "TC-01", "test_type": "acceptance", "title": "Create booking",
+                    "description": "A student books a room.", "requirement_ids": ["FR-01"],
+                    "component_ids": ["A1-C1"], "api_ids": ["A1-API1"]}],
+})
+
+
 class WorkflowTests(unittest.TestCase):
     @patch("workflow.feedback_agent", return_value="Feedback")
     @patch("workflow.reviewer_agent", return_value="Score 8/10")
-    @patch("workflow.testing_agent", return_value="Tests")
+    @patch("workflow.testing_agent", return_value=TESTS)
     @patch("workflow.traceability_agent", return_value="Traceability")
     @patch("workflow.novelty_agent", return_value="Novelty")
-    @patch("workflow.database_agent", return_value="Database")
+    @patch("workflow.database_agent", return_value=DATABASE)
     @patch("workflow.planner_agent", return_value="Plan")
     @patch("workflow.architect_agent")
     @patch("workflow.requirement_agent", return_value=REQUIREMENTS)

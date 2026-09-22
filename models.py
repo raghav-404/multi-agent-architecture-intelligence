@@ -106,3 +106,60 @@ class EvaluationResult(StrictModel):
     evaluations: list[ArchitectureEvaluation]
     selected_architecture_id: str
     selection_reason: str
+
+
+class DatabaseField(StrictModel):
+    name: str
+    data_type: str
+    constraints: list[str]
+
+
+class DatabaseEntity(StrictModel):
+    id: str
+    name: str
+    purpose: str
+    fields: list[DatabaseField]
+    supports_requirements: list[str]
+
+
+class DatabaseRelationship(StrictModel):
+    source_entity_id: str
+    target_entity_id: str
+    relationship: str
+
+
+class DatabaseDesign(StrictModel):
+    engine: str
+    rationale: str
+    entities: list[DatabaseEntity]
+    relationships: list[DatabaseRelationship]
+    risks: list[str]
+
+
+class TestCase(StrictModel):
+    id: str
+    test_type: Literal["unit", "integration", "acceptance", "edge_case"]
+    title: str
+    description: str
+    requirement_ids: list[str]
+    component_ids: list[str]
+    api_ids: list[str]
+
+
+class TestPlan(StrictModel):
+    test_cases: list[TestCase]
+
+
+class ConsistencyIssue(StrictModel):
+    id: str
+    severity: Literal["low", "medium", "high"]
+    category: str
+    description: str
+    evidence: list[str]
+    affected_artifacts: list[str]
+
+
+class ConsistencyReport(StrictModel):
+    status: Literal["pass", "warning", "fail"]
+    score: int
+    issues: list[ConsistencyIssue]

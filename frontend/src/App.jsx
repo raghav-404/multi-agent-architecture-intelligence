@@ -19,6 +19,7 @@ const SECTIONS = [
   { name: "novelty", label: "Novelty", role: "Novelty agent", icon: Sparkles },
   { name: "traceability", label: "Traceability", role: "Traceability agent", icon: ShieldCheck },
   { name: "testing", label: "Testing", role: "Testing agent", icon: TestTube2 },
+  { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },
   { name: "report", label: "Full report", role: "Combined agent output", icon: FileText }
@@ -27,7 +28,7 @@ const SECTIONS = [
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
   "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
-  "Building traceability", "Creating the test plan", "Reviewing the report", "Preparing feedback"
+  "Building traceability", "Creating the test plan", "Validating artifact consistency", "Reviewing the report", "Preparing feedback"
 ];
 
 marked.setOptions({ gfm: true, breaks: true });

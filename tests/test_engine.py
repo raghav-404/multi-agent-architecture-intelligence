@@ -1,8 +1,8 @@
 import unittest
 
-from engine import detect_requirement_conflicts, evaluate_architectures
-from models import ArchitectureOption, RequirementSet
-from tests.test_workflow import REQUIREMENTS, option
+from engine import check_consistency, detect_requirement_conflicts, evaluate_architectures
+from models import ArchitectureOption, RequirementSet, TestPlan
+from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
 
 
 class EvaluationTests(unittest.TestCase):
@@ -41,6 +41,23 @@ class EvaluationTests(unittest.TestCase):
     def test_no_conflict_is_invented(self):
         report = detect_requirement_conflicts(REQUIREMENTS)
         self.assertEqual(report.conflicts, [])
+
+    def test_consistency_finds_database_mismatch_and_missing_tests(self):
+        database = DATABASE.model_copy(update={"engine": "MongoDB"})
+        report = check_consistency(
+            REQUIREMENTS, ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            database, TestPlan(test_cases=[]))
+        categories = {item.category for item in report.issues}
+        self.assertEqual(report.status, "fail")
+        self.assertIn("database_mismatch", categories)
+        self.assertIn("missing_test_coverage", categories)
+
+    def test_consistent_artifacts_pass(self):
+        report = check_consistency(
+            REQUIREMENTS, ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            DATABASE, TESTS)
+        self.assertEqual(report.status, "pass")
+        self.assertEqual(report.score, 100)
 
 
 if __name__ == "__main__":

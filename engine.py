@@ -1,5 +1,6 @@
 from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
-                    EvaluationResult, RequirementConflict)
+                    ConsistencyIssue, ConsistencyReport, EvaluationResult,
+                    RequirementConflict)
 
 
 CRITERIA = ["requirement_fit", "scalability", "security", "performance",
@@ -151,4 +152,78 @@ def evaluation_markdown(result):
     lines += ["\n**Selected architecture:** " + result.selected_architecture_id,
               result.selection_reason,
               "\n*Complexity scores are higher when an option is simpler to operate.*"]
+    return "\n".join(lines)
+
+
+def database_tokens(text):
+    aliases = {"postgres": "postgresql", "mongo": "mongodb", "dynamo": "dynamodb"}
+    known = ["postgresql", "mysql", "mongodb", "dynamodb", "sqlite", "firebase", "supabase"]
+    value = text.lower()
+    found = {name for name in known if name in value}
+    found |= {canonical for alias, canonical in aliases.items() if alias in value}
+    return found
+
+
+def check_consistency(requirements, architecture, database, test_plan):
+    requirement_ids = {item.id for item in requirements.requirements}
+    component_ids = {item.id for item in architecture.components}
+    api_ids = {item.id for item in architecture.apis}
+    entity_ids = {item.id for item in database.entities}
+    issues = []
+
+    def add(severity, category, description, evidence, artifacts):
+        issues.append(ConsistencyIssue(id=f"INC-{len(issues) + 1:02d}", severity=severity,
+                                      category=category, description=description,
+                                      evidence=evidence, affected_artifacts=artifacts))
+
+    arch_db = database_tokens(architecture.database + " " + " ".join(architecture.technology_stack))
+    design_db = database_tokens(database.engine)
+    if arch_db and design_db and arch_db.isdisjoint(design_db):
+        add("high", "database_mismatch", "Architecture and database agents selected different engines.",
+            [f"Architecture: {', '.join(sorted(arch_db))}", f"Database design: {', '.join(sorted(design_db))}"],
+            ["Architecture", "Database Design", "Technology Stack"])
+
+    references = []
+    references += [(f"Component {item.id}", ref) for item in architecture.components for ref in item.supports_requirements]
+    references += [(f"API {item.id}", ref) for item in architecture.apis for ref in item.supports_requirements]
+    references += [(f"Entity {item.id}", ref) for item in database.entities for ref in item.supports_requirements]
+    references += [(f"Test {item.id}", ref) for item in test_plan.test_cases for ref in item.requirement_ids]
+    invalid = [f"{source} -> {ref}" for source, ref in references if ref not in requirement_ids]
+    if invalid:
+        add("high", "invalid_requirement_reference", "Artifacts reference unknown requirements.",
+            invalid, ["Requirements", "Architecture", "Database Design", "Testing"])
+
+    invalid_api_components = [f"{item.id} -> {item.component_id}" for item in architecture.apis if item.component_id not in component_ids]
+    invalid_relationships = [f"{item.source_entity_id} -> {item.target_entity_id}" for item in database.relationships
+                             if item.source_entity_id not in entity_ids or item.target_entity_id not in entity_ids]
+    invalid_tests = [item.id for item in test_plan.test_cases
+                     if any(ref not in component_ids for ref in item.component_ids)
+                     or any(ref not in api_ids for ref in item.api_ids)]
+    if invalid_api_components or invalid_relationships or invalid_tests:
+        add("high", "broken_artifact_reference", "One or more artifact links point to missing IDs.",
+            invalid_api_components + invalid_relationships + invalid_tests,
+            ["Architecture", "Database Design", "Testing"])
+
+    tested = {ref for item in test_plan.test_cases for ref in item.requirement_ids}
+    required = {item.id for item in requirements.requirements if item.priority == "must"}
+    missing_tests = sorted(required - tested)
+    if missing_tests:
+        add("medium", "missing_test_coverage", "Must-have requirements are not covered by tests.",
+            missing_tests, ["Requirements", "Testing", "Traceability"])
+
+    penalties = {"high": 18, "medium": 8, "low": 3}
+    score = max(0, 100 - sum(penalties[item.severity] for item in issues))
+    status = "fail" if any(item.severity == "high" for item in issues) else "warning" if issues else "pass"
+    return ConsistencyReport(status=status, score=score, issues=issues)
+
+
+def consistency_markdown(report):
+    lines = [f"**Status:** {report.status.upper()}  ", f"**Consistency score:** {report.score}%"]
+    if not report.issues:
+        return "\n".join(lines + ["\nNo cross-artifact inconsistencies were detected."])
+    for item in report.issues:
+        lines += [f"\n### {item.id}: {item.category.replace('_', ' ').title()}",
+                  f"**Severity:** {item.severity.title()}  ", item.description,
+                  "\nEvidence:", *[f"- {value}" for value in item.evidence],
+                  f"\nAffected artifacts: {', '.join(item.affected_artifacts)}"]
     return "\n".join(lines)

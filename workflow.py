@@ -1,20 +1,23 @@
+import json
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
 from agents.architect import architect_agent, architecture_markdown
 from agents.clarification import clarification_agent
-from agents.database import database_agent
+from agents.database import database_agent, database_markdown
 from agents.feedback import feedback_agent
 from agents.novelty import novelty_agent
 from agents.planner import planner_agent
 from agents.requirement import requirement_agent, requirements_markdown
 from agents.reviewer import reviewer_agent
-from agents.testing import testing_agent
+from agents.testing import testing_agent, testing_markdown
 from agents.traceability import traceability_agent
 from engine import (conflicts_markdown, detect_requirement_conflicts,
+                    check_consistency, consistency_markdown,
                     evaluate_architectures, evaluation_markdown)
-from models import ArchitectureOption, RequirementSet
+from models import (ArchitectureOption, DatabaseDesign, EvaluationResult,
+                    RequirementSet, TestPlan)
 
 
 class State(TypedDict):
@@ -25,6 +28,9 @@ class State(TypedDict):
     conflicts_data: dict
     architecture_options: list[dict]
     evaluation_data: dict
+    database_data: dict
+    testing_data: dict
+    consistency_data: dict
     clarification: str
     requirements: str
     conflicts: str
@@ -35,6 +41,7 @@ class State(TypedDict):
     novelty: str
     traceability: str
     testing: str
+    consistency: str
     review: str
     feedback: str
     report: str
@@ -82,7 +89,14 @@ def evaluation_node(state):
 
 
 def database_node(state):
-    state["database"] = database_agent(state["details"])
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(item for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    text = state["details"] + "\nRequirements:\n" + json.dumps(state["requirements_data"])
+    text += "\nSelected architecture:\n" + json.dumps(selected)
+    result = database_agent(text)
+    state["database_data"] = result.model_dump()
+    state["database"] = database_markdown(result)
     return state
 
 
@@ -98,7 +112,27 @@ def traceability_node(state):
 
 
 def testing_node(state):
-    state["testing"] = testing_agent(build_report(state)[:5000])
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(item for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    text = json.dumps({"requirements": state["requirements_data"],
+                       "architecture": selected, "database": state["database_data"]})
+    result = testing_agent(text)
+    state["testing_data"] = result.model_dump()
+    state["testing"] = testing_markdown(result)
+    return state
+
+
+def consistency_node(state):
+    requirements = RequirementSet.model_validate(state["requirements_data"])
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(ArchitectureOption.model_validate(item) for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    database = DatabaseDesign.model_validate(state["database_data"])
+    tests = TestPlan.model_validate(state["testing_data"])
+    result = check_consistency(requirements, selected, database, tests)
+    state["consistency_data"] = result.model_dump()
+    state["consistency"] = consistency_markdown(result)
     return state
 
 
@@ -125,6 +159,7 @@ def build_report(state):
         "## Novelty Analysis\n" + state.get("novelty", ""),
         "## Requirements Traceability\n" + state.get("traceability", ""),
         "## Test Plan\n" + state.get("testing", ""),
+        "## Cross-Agent Consistency\n" + state.get("consistency", ""),
     ]
     return "\n\n".join(sections)
 
@@ -136,14 +171,14 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     nodes += [("planner", planner_node), ("architect", architect_node)]
     nodes += [("evaluation", evaluation_node), ("database", database_node), ("novelty", novelty_node)]
     nodes += [("traceability", traceability_node), ("testing", testing_node)]
-    nodes += [("reviewer", reviewer_node)]
+    nodes += [("consistency", consistency_node), ("reviewer", reviewer_node)]
 
     for name, node in nodes:
         graph.add_node(name, node)
     graph.set_entry_point("clarification")
 
     steps = ["clarification", "requirement", "conflicts", "planner", "architect", "evaluation"]
-    steps += ["database", "novelty", "traceability", "testing", "reviewer"]
+    steps += ["database", "novelty", "traceability", "testing", "consistency", "reviewer"]
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
     graph.add_edge("reviewer", END)
@@ -162,6 +197,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "novelty": result["novelty"],
         "traceability": result["traceability"],
         "testing": result["testing"],
+        "consistency": result["consistency"],
         "review": result["review"],
         "feedback": result["feedback"],
         "report": result["report"],
@@ -170,5 +206,8 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
             "conflicts": result["conflicts_data"],
             "architectures": result["architecture_options"],
             "evaluation": result["evaluation_data"],
+            "database": result["database_data"],
+            "testing": result["testing_data"],
+            "consistency": result["consistency_data"],
         },
     }

@@ -30,12 +30,12 @@ Return only data matching the provided JSON schema.
 
 DATABASE_PROMPT = """
 You are a Database Agent.
-For this project idea, write:
-- Tables
-- Fields
-- Relationships
-Keep the answer concise.
-Return markdown only.
+Design the database for the selected architecture and requirements.
+Use DBE-01 style entity IDs. Every entity must reference the requirement IDs
+it supports. Relationship endpoints must use existing entity IDs.
+Do not choose a different database engine from the selected architecture unless
+the input explicitly identifies a necessary correction.
+Return only data matching the provided JSON schema.
 """
 
 REVIEWER_PROMPT = """
@@ -79,12 +79,10 @@ Use 5 to 8 important requirements. Return markdown only.
 
 TESTING_PROMPT = """
 You are a Software Testing Agent.
-Read the project report and create a concise test plan with:
-- Unit tests
-- Integration tests
-- Acceptance tests in Given/When/Then format
-- Important edge cases
-Use project-specific examples. Return markdown only.
+Create concise unit, integration, acceptance, and edge-case tests.
+Use TC-01 style IDs and reference only requirement, component, and API IDs
+provided in the input. Ensure every must-have functional requirement has a test.
+Return only data matching the provided JSON schema.
 """
 
 FEEDBACK_PROMPT = """
