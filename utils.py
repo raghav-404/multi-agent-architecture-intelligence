@@ -13,6 +13,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 
 load_dotenv()
+DATA_DIR = "/tmp" if os.getenv("VERCEL") else "."
 
 
 def ask_groq(prompt, text):
@@ -55,15 +56,15 @@ def password_hash(password, salt=None):
 
 
 def register_user(username, password):
-    users = read_json("users.json", {})
+    users = read_json(os.path.join(DATA_DIR, "users.json"), {})
     if username in users:
         raise ValueError("That username is already in use.")
     users[username] = password_hash(password)
-    write_json("users.json", users)
+    write_json(os.path.join(DATA_DIR, "users.json"), users)
 
 
 def verify_user(username, password):
-    saved = read_json("users.json", {}).get(username, "")
+    saved = read_json(os.path.join(DATA_DIR, "users.json"), {}).get(username, "")
     if not saved or "$" not in saved:
         return False
     salt, _ = saved.split("$", 1)
@@ -71,13 +72,14 @@ def verify_user(username, password):
 
 
 def save_history(username, project, report):
-    history = read_json("history.json", [])
+    path = os.path.join(DATA_DIR, "history.json")
+    history = read_json(path, [])
     history.append({"username": username, "project": project, "report": report})
-    write_json("history.json", history)
+    write_json(path, history)
 
 
 def load_history(username):
-    history = read_json("history.json", [])
+    history = read_json(os.path.join(DATA_DIR, "history.json"), [])
     return [item for item in history if item.get("username") == username]
 
 
