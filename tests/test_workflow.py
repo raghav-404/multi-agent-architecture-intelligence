@@ -23,7 +23,9 @@ def option(identifier, style):
         "apis": [{"id": f"{identifier}-API1", "method": "POST", "path": "/bookings", "responsibility": "Create booking", "component_id": f"{identifier}-C1", "supports_requirements": ["FR-01"]}],
         "database": "PostgreSQL", "technology_stack": ["FastAPI", "PostgreSQL"],
         "quality_tactics": [{"attribute": "cost", "tactic": "single deployment", "evidence": "One service"}],
-        "advantages": ["Simple"], "disadvantages": ["Limited scaling"], "assumptions": ["Small team"], "risks": ["Single instance"],
+        "advantages": ["Simple"], "disadvantages": ["Limited scaling"], "assumptions": ["Small team"],
+        "risks": [{"id": f"{identifier}-RISK1", "description": "Single instance",
+                   "component_ids": [f"{identifier}-C1"], "requirement_ids": ["FR-01"]}],
     }
 
 
@@ -46,7 +48,6 @@ class WorkflowTests(unittest.TestCase):
     @patch("workflow.feedback_agent", return_value="Feedback")
     @patch("workflow.reviewer_agent", return_value="Score 8/10")
     @patch("workflow.testing_agent", return_value=TESTS)
-    @patch("workflow.traceability_agent", return_value="Traceability")
     @patch("workflow.novelty_agent", return_value="Novelty")
     @patch("workflow.database_agent", return_value=DATABASE)
     @patch("workflow.planner_agent", return_value="Plan")

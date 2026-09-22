@@ -25,6 +25,7 @@ Reference only requirement IDs supplied in the input. Prefer a modular monolith
 for simple projects and avoid proposing microservices without a clear reason.
 Include responsibilities, communication, database, technology stack, quality
 tactics, advantages, disadvantages, assumptions, and risks.
+Use RISK-01 style risk IDs and reference affected component and requirement IDs.
 Return only data matching the provided JSON schema.
 """
 
@@ -65,16 +66,6 @@ Generate:
 - Implementation roadmap
 Use the selected project type for domain-specific recommendations.
 Return concise markdown only.
-"""
-
-TRACEABILITY_PROMPT = """
-You are a Requirements Traceability Agent.
-Read the software project report and create a compact markdown table that maps:
-- Requirement ID and requirement
-- Architecture component
-- Database table or N/A
-- Test type
-Use 5 to 8 important requirements. Return markdown only.
 """
 
 TESTING_PROMPT = """

@@ -1,6 +1,7 @@
 from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
                     ConsistencyIssue, ConsistencyReport, EvaluationResult,
-                    RequirementConflict)
+                    RequirementConflict, TraceEdge, TraceNode,
+                    TraceabilityGraph)
 
 
 CRITERIA = ["requirement_fit", "scalability", "security", "performance",
@@ -186,6 +187,7 @@ def check_consistency(requirements, architecture, database, test_plan):
     references = []
     references += [(f"Component {item.id}", ref) for item in architecture.components for ref in item.supports_requirements]
     references += [(f"API {item.id}", ref) for item in architecture.apis for ref in item.supports_requirements]
+    references += [(f"Risk {item.id}", ref) for item in architecture.risks for ref in item.requirement_ids]
     references += [(f"Entity {item.id}", ref) for item in database.entities for ref in item.supports_requirements]
     references += [(f"Test {item.id}", ref) for item in test_plan.test_cases for ref in item.requirement_ids]
     invalid = [f"{source} -> {ref}" for source, ref in references if ref not in requirement_ids]
@@ -199,9 +201,11 @@ def check_consistency(requirements, architecture, database, test_plan):
     invalid_tests = [item.id for item in test_plan.test_cases
                      if any(ref not in component_ids for ref in item.component_ids)
                      or any(ref not in api_ids for ref in item.api_ids)]
-    if invalid_api_components or invalid_relationships or invalid_tests:
+    invalid_risks = [item.id for item in architecture.risks
+                     if any(ref not in component_ids for ref in item.component_ids)]
+    if invalid_api_components or invalid_relationships or invalid_tests or invalid_risks:
         add("high", "broken_artifact_reference", "One or more artifact links point to missing IDs.",
-            invalid_api_components + invalid_relationships + invalid_tests,
+            invalid_api_components + invalid_relationships + invalid_tests + invalid_risks,
             ["Architecture", "Database Design", "Testing"])
 
     tested = {ref for item in test_plan.test_cases for ref in item.requirement_ids}
@@ -226,4 +230,76 @@ def consistency_markdown(report):
                   f"**Severity:** {item.severity.title()}  ", item.description,
                   "\nEvidence:", *[f"- {value}" for value in item.evidence],
                   f"\nAffected artifacts: {', '.join(item.affected_artifacts)}"]
+    return "\n".join(lines)
+
+
+def build_traceability(requirements, architecture, database, test_plan):
+    nodes = []
+    edges = []
+
+    def node(identifier, node_type, label):
+        nodes.append(TraceNode(id=identifier, node_type=node_type, label=label))
+
+    def edge(source, target, relationship):
+        edges.append(TraceEdge(source=source, target=target, relationship=relationship))
+
+    for item in requirements.requirements:
+        node(item.id, "requirement", item.statement)
+    for item in requirements.user_stories:
+        node(item.id, "user_story", f"{item.role}: {item.goal}")
+        for requirement_id in item.requirement_ids:
+            edge(requirement_id, item.id, "described_by")
+    for item in architecture.components:
+        node(item.id, "component", item.name)
+        for requirement_id in item.supports_requirements:
+            edge(requirement_id, item.id, "implemented_by")
+    for item in architecture.apis:
+        node(item.id, "api", f"{item.method} {item.path}")
+        edge(item.component_id, item.id, "exposes")
+        for requirement_id in item.supports_requirements:
+            edge(requirement_id, item.id, "exposed_by")
+    for item in database.entities:
+        node(item.id, "database_entity", item.name)
+        for requirement_id in item.supports_requirements:
+            edge(requirement_id, item.id, "stored_in")
+    for item in test_plan.test_cases:
+        node(item.id, "test", item.title)
+        for requirement_id in item.requirement_ids:
+            edge(requirement_id, item.id, "verified_by")
+    for item in architecture.risks:
+        node(item.id, "risk", item.description)
+        for requirement_id in item.requirement_ids:
+            edge(requirement_id, item.id, "threatened_by")
+        for component_id in item.component_ids:
+            edge(component_id, item.id, "has_risk")
+
+    covered_components = {item.source for item in edges if item.relationship == "implemented_by"}
+    covered_tests = {item.source for item in edges if item.relationship == "verified_by"}
+    requirement_ids = {item.id for item in requirements.requirements}
+    uncovered = sorted(requirement_ids - (covered_components & covered_tests))
+    coverage = round(100 * (len(requirement_ids) - len(uncovered)) / len(requirement_ids)) if requirement_ids else 100
+    return TraceabilityGraph(nodes=nodes, edges=edges, coverage_percentage=coverage,
+                             uncovered_requirements=uncovered)
+
+
+def traceability_markdown(graph):
+    lines = [f"**End-to-end coverage:** {graph.coverage_percentage}%  ",
+             f"**Uncovered requirements:** {', '.join(graph.uncovered_requirements) or 'None'}",
+             "\n```mermaid", "flowchart LR"]
+    important = {"requirement", "component", "database_entity", "api", "test", "risk"}
+    for item in graph.nodes:
+        if item.node_type in important:
+            safe_id = item.id.replace("-", "_")
+            safe_label = item.label.replace('"', "'")[:45]
+            lines.append(f'    {safe_id}["{item.id}: {safe_label}"]')
+    node_ids = {item.id for item in graph.nodes if item.node_type in important}
+    for item in graph.edges:
+        if item.source in node_ids and item.target in node_ids:
+            source = item.source.replace("-", "_")
+            target = item.target.replace("-", "_")
+            lines.append(f"    {source} -->|{item.relationship}| {target}")
+    lines += ["```", "\n### Requirement Links"]
+    for requirement in [item for item in graph.nodes if item.node_type == "requirement"]:
+        targets = [item.target for item in graph.edges if item.source == requirement.id]
+        lines.append(f"- **{requirement.id}:** {', '.join(targets) or 'No linked artifacts'}")
     return "\n".join(lines)

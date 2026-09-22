@@ -1,6 +1,7 @@
 import unittest
 
-from engine import check_consistency, detect_requirement_conflicts, evaluate_architectures
+from engine import (build_traceability, check_consistency,
+                    detect_requirement_conflicts, evaluate_architectures)
 from models import ArchitectureOption, RequirementSet, TestPlan
 from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
 
@@ -58,6 +59,15 @@ class EvaluationTests(unittest.TestCase):
             DATABASE, TESTS)
         self.assertEqual(report.status, "pass")
         self.assertEqual(report.score, 100)
+
+    def test_traceability_uses_real_artifact_ids(self):
+        graph = build_traceability(
+            REQUIREMENTS, ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            DATABASE, TESTS)
+        fr_targets = {edge.target for edge in graph.edges if edge.source == "FR-01"}
+        self.assertTrue({"US-01", "A1-C1", "A1-API1", "DBE-01", "TC-01"}.issubset(fr_targets))
+        self.assertEqual(graph.coverage_percentage, 50)
+        self.assertEqual(graph.uncovered_requirements, ["NFR-01"])
 
 
 if __name__ == "__main__":

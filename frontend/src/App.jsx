@@ -17,7 +17,7 @@ const SECTIONS = [
   { name: "evaluation", label: "Evaluation", role: "Deterministic Python engine", icon: FlaskConical },
   { name: "database", label: "Database", role: "Database agent", icon: Database },
   { name: "novelty", label: "Novelty", role: "Novelty agent", icon: Sparkles },
-  { name: "traceability", label: "Traceability", role: "Traceability agent", icon: ShieldCheck },
+  { name: "traceability", label: "Traceability", role: "Relationship engine", icon: ShieldCheck },
   { name: "testing", label: "Testing", role: "Testing agent", icon: TestTube2 },
   { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },

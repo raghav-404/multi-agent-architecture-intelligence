@@ -12,10 +12,10 @@ from agents.planner import planner_agent
 from agents.requirement import requirement_agent, requirements_markdown
 from agents.reviewer import reviewer_agent
 from agents.testing import testing_agent, testing_markdown
-from agents.traceability import traceability_agent
-from engine import (conflicts_markdown, detect_requirement_conflicts,
+from engine import (build_traceability, conflicts_markdown, detect_requirement_conflicts,
                     check_consistency, consistency_markdown,
-                    evaluate_architectures, evaluation_markdown)
+                    evaluate_architectures, evaluation_markdown,
+                    traceability_markdown)
 from models import (ArchitectureOption, DatabaseDesign, EvaluationResult,
                     RequirementSet, TestPlan)
 
@@ -31,6 +31,7 @@ class State(TypedDict):
     database_data: dict
     testing_data: dict
     consistency_data: dict
+    traceability_data: dict
     clarification: str
     requirements: str
     conflicts: str
@@ -107,7 +108,15 @@ def novelty_node(state):
 
 
 def traceability_node(state):
-    state["traceability"] = traceability_agent(build_report(state)[:4500])
+    requirements = RequirementSet.model_validate(state["requirements_data"])
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(ArchitectureOption.model_validate(item) for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    database = DatabaseDesign.model_validate(state["database_data"])
+    tests = TestPlan.model_validate(state["testing_data"])
+    result = build_traceability(requirements, selected, database, tests)
+    state["traceability_data"] = result.model_dump()
+    state["traceability"] = traceability_markdown(result)
     return state
 
 
@@ -170,7 +179,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
              ("conflicts", conflict_node)]
     nodes += [("planner", planner_node), ("architect", architect_node)]
     nodes += [("evaluation", evaluation_node), ("database", database_node), ("novelty", novelty_node)]
-    nodes += [("traceability", traceability_node), ("testing", testing_node)]
+    nodes += [("testing", testing_node), ("traceability", traceability_node)]
     nodes += [("consistency", consistency_node), ("reviewer", reviewer_node)]
 
     for name, node in nodes:
@@ -178,7 +187,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     graph.set_entry_point("clarification")
 
     steps = ["clarification", "requirement", "conflicts", "planner", "architect", "evaluation"]
-    steps += ["database", "novelty", "traceability", "testing", "consistency", "reviewer"]
+    steps += ["database", "novelty", "testing", "traceability", "consistency", "reviewer"]
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
     graph.add_edge("reviewer", END)
@@ -208,6 +217,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
             "evaluation": result["evaluation_data"],
             "database": result["database_data"],
             "testing": result["testing_data"],
+            "traceability": result["traceability_data"],
             "consistency": result["consistency_data"],
         },
     }

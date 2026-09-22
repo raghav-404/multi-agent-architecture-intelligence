@@ -21,5 +21,6 @@ def architecture_markdown(data):
         lines += ["\n**Components**"] + [f"- **{item.name}:** {item.responsibility} Communication: {item.communication}." for item in option.components]
         lines += [f"\n**Database:** {option.database}", f"\n**Technology stack:** {', '.join(option.technology_stack)}"]
         lines += ["\n**Advantages**"] + [f"- {item}" for item in option.advantages]
-        lines += ["\n**Disadvantages and risks**"] + [f"- {item}" for item in option.disadvantages + option.risks]
+        lines += ["\n**Disadvantages**"] + [f"- {item}" for item in option.disadvantages]
+        lines += ["\n**Risks**"] + [f"- **{item.id}:** {item.description}" for item in option.risks]
     return "\n".join(lines)

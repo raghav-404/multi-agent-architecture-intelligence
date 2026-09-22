@@ -67,6 +67,13 @@ class QualityTactic(StrictModel):
     evidence: str
 
 
+class ArchitectureRisk(StrictModel):
+    id: str
+    description: str
+    component_ids: list[str]
+    requirement_ids: list[str]
+
+
 class ArchitectureOption(StrictModel):
     id: str
     name: str
@@ -80,7 +87,7 @@ class ArchitectureOption(StrictModel):
     advantages: list[str]
     disadvantages: list[str]
     assumptions: list[str]
-    risks: list[str]
+    risks: list[ArchitectureRisk]
 
 
 class ArchitectureSet(StrictModel):
@@ -163,3 +170,22 @@ class ConsistencyReport(StrictModel):
     status: Literal["pass", "warning", "fail"]
     score: int
     issues: list[ConsistencyIssue]
+
+
+class TraceNode(StrictModel):
+    id: str
+    node_type: Literal["requirement", "user_story", "component", "database_entity", "api", "test", "risk"]
+    label: str
+
+
+class TraceEdge(StrictModel):
+    source: str
+    target: str
+    relationship: str
+
+
+class TraceabilityGraph(StrictModel):
+    nodes: list[TraceNode]
+    edges: list[TraceEdge]
+    coverage_percentage: int
+    uncovered_requirements: list[str]
