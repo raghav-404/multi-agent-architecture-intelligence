@@ -13,6 +13,7 @@ const SECTIONS = [
   { name: "requirements", label: "Requirements", role: "Requirement agent", icon: AlignLeft },
   { name: "plan", label: "Project plan", role: "Planning agent", icon: LayoutDashboard },
   { name: "architecture", label: "Architecture", role: "Architecture agent", icon: Network },
+  { name: "evaluation", label: "Evaluation", role: "Deterministic Python engine", icon: FlaskConical },
   { name: "database", label: "Database", role: "Database agent", icon: Database },
   { name: "novelty", label: "Novelty", role: "Novelty agent", icon: Sparkles },
   { name: "traceability", label: "Traceability", role: "Traceability agent", icon: ShieldCheck },
@@ -24,7 +25,7 @@ const SECTIONS = [
 
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Building the project plan",
-  "Comparing architecture options", "Designing the data model", "Finding novelty and risks",
+  "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
   "Building traceability", "Creating the test plan", "Reviewing the report", "Preparing feedback"
 ];
 
@@ -167,7 +168,7 @@ function Sidebar({ open, onClose, history, onHistory, onNew, hasReport }) {
 function AgentPipeline({ running, stage }) {
   return (
     <section className="pipeline-panel">
-      <div className="panel-title"><div><p className="overline">LangGraph workflow</p><h2>Agent pipeline</h2></div><span>{running ? `${Math.min(stage + 1, 10)}/10` : "Sequential"}</span></div>
+      <div className="panel-title"><div><p className="overline">LangGraph workflow</p><h2>Agent pipeline</h2></div><span>{running ? `${Math.min(stage + 1, PROGRESS.length)}/${PROGRESS.length}` : "Sequential"}</span></div>
       <div className="pipeline-list">
         {SECTIONS.slice(0, -1).map((agent, index) => {
           const Icon = agent.icon;
@@ -337,7 +338,7 @@ export default function App() {
   }, [user]);
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(() => setStage(value => Math.min(value + 1, 9)), 2200);
+    const timer = setInterval(() => setStage(value => Math.min(value + 1, PROGRESS.length - 1)), 2200);
     return () => clearInterval(timer);
   }, [running]);
   useEffect(() => {

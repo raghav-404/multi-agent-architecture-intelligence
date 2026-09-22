@@ -72,3 +72,24 @@ class ArchitectureOption(StrictModel):
 
 class ArchitectureSet(StrictModel):
     options: list[ArchitectureOption]
+
+
+class CriterionScore(StrictModel):
+    criterion: str
+    score: int
+    weight: float
+    evidence: list[str]
+
+
+class ArchitectureEvaluation(StrictModel):
+    architecture_id: str
+    scores: list[CriterionScore]
+    weighted_total: float
+    covered_requirements: list[str]
+    uncovered_requirements: list[str]
+
+
+class EvaluationResult(StrictModel):
+    evaluations: list[ArchitectureEvaluation]
+    selected_architecture_id: str
+    selection_reason: str

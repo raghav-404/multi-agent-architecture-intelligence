@@ -12,6 +12,8 @@ from agents.requirement import requirement_agent, requirements_markdown
 from agents.reviewer import reviewer_agent
 from agents.testing import testing_agent
 from agents.traceability import traceability_agent
+from engine import evaluate_architectures, evaluation_markdown
+from models import ArchitectureOption, RequirementSet
 
 
 class State(TypedDict):
@@ -20,10 +22,12 @@ class State(TypedDict):
     option_count: int
     requirements_data: dict
     architecture_options: list[dict]
+    evaluation_data: dict
     clarification: str
     requirements: str
     plan: str
     architecture: str
+    evaluation: str
     database: str
     novelty: str
     traceability: str
@@ -54,6 +58,15 @@ def architect_node(state):
     result = architect_agent(state["details"], state["requirements_data"], state["option_count"])
     state["architecture_options"] = [item.model_dump() for item in result.options]
     state["architecture"] = architecture_markdown(result)
+    return state
+
+
+def evaluation_node(state):
+    requirements = RequirementSet.model_validate(state["requirements_data"])
+    options = [ArchitectureOption.model_validate(item) for item in state["architecture_options"]]
+    result = evaluate_architectures(requirements, options)
+    state["evaluation_data"] = result.model_dump()
+    state["evaluation"] = evaluation_markdown(result)
     return state
 
 
@@ -95,6 +108,7 @@ def build_report(state):
         "## Requirements\n" + state["requirements"],
         "## Project Plan\n" + state["plan"],
         "## Architecture Debate\n" + state["architecture"],
+        "## Architecture Evaluation\n" + state.get("evaluation", ""),
         "## Database Design\n" + state["database"],
         "## Novelty Analysis\n" + state.get("novelty", ""),
         "## Requirements Traceability\n" + state.get("traceability", ""),
@@ -107,7 +121,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     graph = StateGraph(State)
     nodes = [("clarification", clarification_node), ("requirement", requirement_node)]
     nodes += [("planner", planner_node), ("architect", architect_node)]
-    nodes += [("database", database_node), ("novelty", novelty_node)]
+    nodes += [("evaluation", evaluation_node), ("database", database_node), ("novelty", novelty_node)]
     nodes += [("traceability", traceability_node), ("testing", testing_node)]
     nodes += [("reviewer", reviewer_node)]
 
@@ -115,7 +129,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         graph.add_node(name, node)
     graph.set_entry_point("clarification")
 
-    steps = ["clarification", "requirement", "planner", "architect"]
+    steps = ["clarification", "requirement", "planner", "architect", "evaluation"]
     steps += ["database", "novelty", "traceability", "testing", "reviewer"]
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
@@ -129,6 +143,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "requirements": result["requirements"],
         "plan": result["plan"],
         "architecture": result["architecture"],
+        "evaluation": result["evaluation"],
         "database": result["database"],
         "novelty": result["novelty"],
         "traceability": result["traceability"],
@@ -139,5 +154,6 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "analysis": {
             "requirements": result["requirements_data"],
             "architectures": result["architecture_options"],
+            "evaluation": result["evaluation_data"],
         },
     }
