@@ -4,7 +4,7 @@ from utils import ask_groq_json
 
 
 def database_agent(project):
-    return ask_groq_json(DATABASE_PROMPT, project, DatabaseDesign, 2200)
+    return ask_groq_json(DATABASE_PROMPT, project, DatabaseDesign, 3500)
 
 
 def database_markdown(data):

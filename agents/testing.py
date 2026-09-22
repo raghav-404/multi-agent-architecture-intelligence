@@ -4,7 +4,7 @@ from utils import ask_groq_json
 
 
 def testing_agent(text):
-    return ask_groq_json(TESTING_PROMPT, text, TestPlan, 2200)
+    return ask_groq_json(TESTING_PROMPT, text, TestPlan, 3000)
 
 
 def testing_markdown(data):

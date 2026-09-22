@@ -3,11 +3,22 @@ import unittest
 from engine import (analyze_change_impact, analyze_scenario, build_traceability,
                     check_consistency, detect_requirement_conflicts,
                     evaluate_architectures, generate_adrs)
+from agents.architect import normalize_ids
 from models import ArchitectureOption, RequirementSet, TestPlan
 from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_architecture_ids_are_namespaced(self):
+        architecture = ArchitectureOption.model_validate(option("OLD", "modular monolith"))
+        architecture.components[0].id = "component"
+        architecture.apis[0].component_id = "component"
+        architecture.risks[0].component_ids = ["component"]
+        normalized = normalize_ids(architecture, 2)
+        self.assertEqual(normalized.components[0].id, "A2-C1")
+        self.assertEqual(normalized.apis[0].component_id, "A2-C1")
+        self.assertEqual(normalized.risks[0].component_ids, ["A2-C1"])
+
     def test_low_cost_project_prefers_simpler_option(self):
         requirements = RequirementSet.model_validate(REQUIREMENTS)
         options = [

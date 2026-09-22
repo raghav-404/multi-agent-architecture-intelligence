@@ -8,7 +8,7 @@ from io import BytesIO
 from html import escape
 
 from dotenv import load_dotenv
-from groq import Groq
+from groq import BadRequestError, Groq
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
@@ -24,7 +24,7 @@ def ask_groq(prompt, text):
     if not api_key or api_key == "your_groq_api_key_here":
         raise ValueError("Missing Groq API key. Add GROQ_API_KEY to your .env file.")
 
-    client = Groq(api_key=api_key)
+    client = Groq(api_key=api_key, max_retries=0, timeout=45.0)
     model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
     response = client.chat.completions.create(
@@ -45,26 +45,32 @@ def ask_groq_json(prompt, text, schema, max_tokens=1800):
     if not api_key or api_key == "your_groq_api_key_here":
         raise ValueError("Missing Groq API key. Add GROQ_API_KEY to your .env file.")
 
-    client = Groq(api_key=api_key)
+    client = Groq(api_key=api_key, max_retries=0, timeout=45.0)
     model = os.getenv("GROQ_STRUCTURED_MODEL", "openai/gpt-oss-20b")
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": text},
-        ],
-        temperature=0.2,
-        max_completion_tokens=max_tokens,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": schema.__name__.lower(),
-                "strict": True,
-                "schema": schema.model_json_schema(),
-            },
-        },
-    )
-    return schema.model_validate_json(response.choices[0].message.content)
+    for attempt in range(2):
+        retry = "\nThis is a retry. Follow the schema exactly and keep every list concise." if attempt else ""
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": text + retry},
+                ],
+                temperature=0.2,
+                max_completion_tokens=max_tokens,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema.__name__.lower(),
+                        "strict": True,
+                        "schema": schema.model_json_schema(),
+                    },
+                },
+            )
+            return schema.model_validate_json(response.choices[0].message.content)
+        except BadRequestError:
+            if attempt:
+                raise
 
 
 def read_json(path, default):

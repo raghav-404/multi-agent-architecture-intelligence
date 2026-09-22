@@ -164,9 +164,12 @@ def red_team_node(state):
     evaluation = EvaluationResult.model_validate(state["evaluation_data"])
     selected = next(item for item in state["architecture_options"]
                     if item["id"] == evaluation.selected_architecture_id)
+    traceability = state["traceability_data"]
     text = json.dumps({"requirements": state["requirements_data"],
                        "architecture": selected, "database": state["database_data"],
-                       "testing": state["testing_data"], "traceability": state["traceability_data"],
+                       "testing": state["testing_data"],
+                       "traceability": {"coverage_percentage": traceability["coverage_percentage"],
+                                        "uncovered_requirements": traceability["uncovered_requirements"]},
                        "consistency": state.get("consistency_data", {})})
     result = red_team_agent(text)
     valid_ids = {item["id"] for item in state["requirements_data"]["requirements"]}
@@ -214,11 +217,16 @@ def refinement_node(state):
     evaluation = EvaluationResult.model_validate(state["evaluation_data"])
     selected = next(ArchitectureOption.model_validate(item) for item in state["architecture_options"]
                     if item["id"] == evaluation.selected_architecture_id)
+    requirements = [{"id": item["id"], "statement": item["statement"],
+                     "priority": item["priority"]}
+                    for item in state["requirements_data"]["requirements"]]
+    traceability = state["traceability_data"]
     context = json.dumps({
-        "project": state["details"], "requirements": state["requirements_data"],
+        "project": state["project"], "requirements": requirements,
         "current_architecture": selected.model_dump(), "red_team": state["red_team_data"],
-        "consistency": state["consistency_data"], "traceability": state["traceability_data"],
-        "reviewer_notes": state["review"],
+        "consistency": state["consistency_data"],
+        "uncovered_requirements": traceability["uncovered_requirements"],
+        "reviewer_notes": state["review"][:1000],
     })
     refined = refine_architecture(context, selected)
     state["pending_changes"] = architecture_changes(selected, refined)

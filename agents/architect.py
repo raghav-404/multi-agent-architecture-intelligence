@@ -1,17 +1,37 @@
 import json
 
-from models import ArchitectureSet
+from models import ArchitectureOption, ArchitectureSet
 from prompts import ARCHITECT_PROMPT, ARCHITECT_REFINE_PROMPT
 from utils import ask_groq_json
 
 
 def architect_agent(project, requirements, option_count):
-    text = f"{project}\nGenerate exactly {option_count} alternatives.\n"
-    text += "Requirements:\n" + json.dumps(requirements, indent=2)
-    result = ask_groq_json(ARCHITECT_PROMPT, text, ArchitectureSet, 2600)
-    if len(result.options) != option_count:
-        raise ValueError(f"Groq returned {len(result.options)} architecture options; expected {option_count}.")
-    return result
+    styles = ["modular monolith", "serverless", "service-based architecture"]
+    options = []
+    for index in range(option_count):
+        text = f"{project}\nCreate alternative A{index + 1} of {option_count}. "
+        text += f"Prefer {styles[index]} when suitable, while remaining domain-specific.\n"
+        text += "Use 3-5 components, up to 5 APIs, up to 5 tactics, and up to 3 risks.\n"
+        text += "Requirements:\n" + json.dumps(requirements)
+        option = ask_groq_json(ARCHITECT_PROMPT, text, ArchitectureOption, 3500)
+        options.append(normalize_ids(option, index + 1))
+    return ArchitectureSet(options=options)
+
+
+def normalize_ids(option, number):
+    option.id = f"A{number}"
+    component_ids = {}
+    for index, component in enumerate(option.components, 1):
+        new_id = f"A{number}-C{index}"
+        component_ids[component.id] = new_id
+        component.id = new_id
+    for index, api in enumerate(option.apis, 1):
+        api.id = f"A{number}-API{index}"
+        api.component_id = component_ids.get(api.component_id, api.component_id)
+    for index, risk in enumerate(option.risks, 1):
+        risk.id = f"A{number}-RISK{index}"
+        risk.component_ids = [component_ids.get(item, item) for item in risk.component_ids]
+    return option
 
 
 def architecture_markdown(data):
@@ -27,6 +47,6 @@ def architecture_markdown(data):
 
 
 def refine_architecture(context, current):
-    result = ask_groq_json(ARCHITECT_REFINE_PROMPT, context, type(current), 2600)
-    result.id = current.id
-    return result
+    result = ask_groq_json(ARCHITECT_REFINE_PROMPT, context, type(current), 3000)
+    number = int(current.id.removeprefix("A"))
+    return normalize_ids(result, number)
