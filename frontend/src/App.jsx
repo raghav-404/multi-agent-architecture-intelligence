@@ -21,6 +21,7 @@ const SECTIONS = [
   { name: "testing", label: "Testing", role: "Testing agent", icon: TestTube2 },
   { name: "red_team", label: "Red team", role: "Adversarial architecture review", icon: ShieldAlert },
   { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
+  { name: "refinement", label: "Refinement", role: "Bounded improvement loop", icon: Sparkles },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },
   { name: "report", label: "Full report", role: "Combined agent output", icon: FileText }
@@ -29,7 +30,7 @@ const SECTIONS = [
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
   "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
-  "Building traceability", "Creating the test plan", "Running adversarial review", "Validating artifact consistency", "Reviewing the report", "Preparing feedback"
+  "Building traceability", "Creating the test plan", "Running adversarial review", "Validating artifact consistency", "Reviewing the report", "Refining the architecture", "Preparing feedback"
 ];
 
 marked.setOptions({ gfm: true, breaks: true });

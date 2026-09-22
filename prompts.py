@@ -99,3 +99,13 @@ assumptions, contradictions, and reliability gaps. Use RT-01 style finding IDs.
 Reference only artifact IDs present in the input and cite concrete evidence.
 Do not invent findings without evidence. Return only the provided JSON schema.
 """
+
+ARCHITECT_REFINE_PROMPT = """
+You are an Architecture Refinement Agent.
+Improve the selected architecture using only the supplied red-team findings,
+consistency issues, uncovered requirements, and reviewer notes. Preserve its
+architecture ID. Keep useful decisions, avoid unnecessary complexity, and
+resolve critical or high findings with concrete components or quality tactics.
+All artifact references must use IDs present in the input or newly defined
+component, API, or risk IDs. Return only the provided JSON schema.
+"""

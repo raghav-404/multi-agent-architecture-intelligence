@@ -1,7 +1,7 @@
 import json
 
 from models import ArchitectureSet
-from prompts import ARCHITECT_PROMPT
+from prompts import ARCHITECT_PROMPT, ARCHITECT_REFINE_PROMPT
 from utils import ask_groq_json
 
 
@@ -24,3 +24,9 @@ def architecture_markdown(data):
         lines += ["\n**Disadvantages**"] + [f"- {item}" for item in option.disadvantages]
         lines += ["\n**Risks**"] + [f"- **{item.id}:** {item.description}" for item in option.risks]
     return "\n".join(lines)
+
+
+def refine_architecture(context, current):
+    result = ask_groq_json(ARCHITECT_REFINE_PROMPT, context, type(current), 2600)
+    result.id = current.id
+    return result

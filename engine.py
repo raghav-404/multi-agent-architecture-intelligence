@@ -303,3 +303,39 @@ def traceability_markdown(graph):
         targets = [item.target for item in graph.edges if item.source == requirement.id]
         lines.append(f"- **{requirement.id}:** {', '.join(targets) or 'No linked artifacts'}")
     return "\n".join(lines)
+
+
+def architecture_changes(before, after):
+    changes = []
+    comparisons = [
+        ("components", {item.name for item in before.components}, {item.name for item in after.components}),
+        ("technologies", set(before.technology_stack), set(after.technology_stack)),
+        ("quality tactics", {item.tactic for item in before.quality_tactics},
+         {item.tactic for item in after.quality_tactics}),
+        ("risks", {item.description for item in before.risks}, {item.description for item in after.risks}),
+    ]
+    for label, old, new in comparisons:
+        if new - old:
+            changes.append(f"Added {label}: {', '.join(sorted(new - old))}")
+        if old - new:
+            changes.append(f"Removed {label}: {', '.join(sorted(old - new))}")
+    if before.database != after.database:
+        changes.append(f"Changed database from {before.database} to {after.database}")
+    return changes or ["Clarified the architecture without changing its major structure."]
+
+
+def versions_markdown(versions):
+    if not versions:
+        return "No architecture versions were recorded."
+    lines = ["| Version | Evaluation | Traceability | Consistency | Critical Risks | High Risks |",
+             "| --- | --- | --- | --- | --- | --- |"]
+    for item in versions:
+        lines.append(f"| V{item.version} | {item.evaluation.weighted_total}/10 | "
+                     f"{item.traceability_coverage}% | {item.consistency_score}% | "
+                     f"{item.critical_risks} | {item.high_risks} |")
+    if len(versions) > 1:
+        lines += [f"\n### Changes in V{versions[-1].version}"]
+        lines += [f"- {change}" for change in versions[-1].changes]
+    else:
+        lines += ["\nNo refinement was required after the first review."]
+    return "\n".join(lines)

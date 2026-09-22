@@ -3,7 +3,8 @@ from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from agents.architect import architect_agent, architecture_markdown
+from agents.architect import (architect_agent, architecture_markdown,
+                              refine_architecture)
 from agents.clarification import clarification_agent
 from agents.database import database_agent, database_markdown
 from agents.feedback import feedback_agent
@@ -13,18 +14,25 @@ from agents.requirement import requirement_agent, requirements_markdown
 from agents.red_team import red_team_agent, red_team_markdown
 from agents.reviewer import reviewer_agent
 from agents.testing import testing_agent, testing_markdown
-from engine import (build_traceability, conflicts_markdown, detect_requirement_conflicts,
+from engine import (architecture_changes, build_traceability, conflicts_markdown,
+                    detect_requirement_conflicts,
                     check_consistency, consistency_markdown,
                     evaluate_architectures, evaluation_markdown,
-                    traceability_markdown)
-from models import (ArchitectureOption, DatabaseDesign, EvaluationResult,
-                    RequirementSet, TestPlan)
+                    traceability_markdown, versions_markdown)
+from models import (ArchitectureOption, ArchitectureSet, ArchitectureVersion,
+                    ConsistencyReport, DatabaseDesign, EvaluationResult,
+                    RedTeamReview, RequirementSet, TestPlan,
+                    TraceabilityGraph)
 
 
 class State(TypedDict):
     project: str
     details: str
     option_count: int
+    iteration: int
+    max_iterations: int
+    pending_changes: list[str]
+    architecture_versions: list[dict]
     requirements_data: dict
     conflicts_data: dict
     architecture_options: list[dict]
@@ -46,6 +54,7 @@ class State(TypedDict):
     testing: str
     consistency: str
     red_team: str
+    refinement: str
     review: str
     feedback: str
     report: str
@@ -172,6 +181,62 @@ def reviewer_node(state):
     report = build_report(state)
     state["review"] = reviewer_agent(report[:5000])
     state["feedback"] = feedback_agent(state["review"])
+
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(ArchitectureOption.model_validate(item) for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    selected_score = next(item for item in evaluation.evaluations
+                          if item.architecture_id == evaluation.selected_architecture_id)
+    consistency = ConsistencyReport.model_validate(state["consistency_data"])
+    traceability = TraceabilityGraph.model_validate(state["traceability_data"])
+    red_team = RedTeamReview.model_validate(state["red_team_data"])
+    versions = [ArchitectureVersion.model_validate(item) for item in state["architecture_versions"]]
+    versions.append(ArchitectureVersion(
+        version=len(versions) + 1, architecture=selected, evaluation=selected_score,
+        consistency_score=consistency.score,
+        traceability_coverage=traceability.coverage_percentage,
+        critical_risks=sum(item.severity == "critical" for item in red_team.findings),
+        high_risks=sum(item.severity == "high" for item in red_team.findings),
+        changes=state["pending_changes"],
+    ))
+    state["architecture_versions"] = [item.model_dump() for item in versions]
+    return state
+
+
+def refinement_node(state):
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(ArchitectureOption.model_validate(item) for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    context = json.dumps({
+        "project": state["details"], "requirements": state["requirements_data"],
+        "current_architecture": selected.model_dump(), "red_team": state["red_team_data"],
+        "consistency": state["consistency_data"], "traceability": state["traceability_data"],
+        "reviewer_notes": state["review"],
+    })
+    refined = refine_architecture(context, selected)
+    state["pending_changes"] = architecture_changes(selected, refined)
+    state["architecture_options"] = [refined.model_dump() if item["id"] == selected.id else item
+                                     for item in state["architecture_options"]]
+    state["architecture"] = architecture_markdown(
+        ArchitectureSet(options=[ArchitectureOption.model_validate(item)
+                                 for item in state["architecture_options"]]))
+    state["iteration"] += 1
+    return state
+
+
+def route_after_review(state):
+    red_team = RedTeamReview.model_validate(state["red_team_data"])
+    consistency = ConsistencyReport.model_validate(state["consistency_data"])
+    traceability = TraceabilityGraph.model_validate(state["traceability_data"])
+    serious_risk = any(item.severity in ["critical", "high"] for item in red_team.findings)
+    needs_work = serious_risk or consistency.status == "fail" or traceability.coverage_percentage < 80
+    return "refine" if needs_work and state["iteration"] < state["max_iterations"] else "finish"
+
+
+def finalize_node(state):
+    versions = [ArchitectureVersion.model_validate(item) for item in state["architecture_versions"]]
+    state["refinement"] = versions_markdown(versions)
+    report = build_report(state)
     state["report"] = report + "\n\n## Reviewer Notes\n" + state["review"]
     state["report"] += "\n\n## Feedback Loop\n" + state["feedback"]
     return state
@@ -193,6 +258,7 @@ def build_report(state):
         "## Test Plan\n" + state.get("testing", ""),
         "## Red Team Architecture Review\n" + state.get("red_team", ""),
         "## Cross-Agent Consistency\n" + state.get("consistency", ""),
+        "## Architecture Refinement\n" + state.get("refinement", ""),
     ]
     return "\n\n".join(sections)
 
@@ -202,23 +268,33 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     nodes = [("clarification", clarification_node), ("requirement", requirement_node),
              ("conflicts", conflict_node)]
     nodes += [("planner", planner_node), ("architect", architect_node)]
-    nodes += [("evaluation", evaluation_node), ("database", database_node), ("novelty", novelty_node)]
+    nodes += [("evaluation", evaluation_node), ("database", database_node)]
     nodes += [("testing", testing_node), ("traceability", traceability_node)]
     nodes += [("red_team", red_team_node), ("consistency", consistency_node), ("reviewer", reviewer_node)]
+    nodes += [("refinement", refinement_node), ("novelty", novelty_node), ("finalize", finalize_node)]
 
     for name, node in nodes:
         graph.add_node(name, node)
     graph.set_entry_point("clarification")
 
     steps = ["clarification", "requirement", "conflicts", "planner", "architect", "evaluation"]
-    steps += ["database", "novelty", "testing", "traceability", "red_team", "consistency", "reviewer"]
+    steps += ["database", "testing", "traceability", "red_team", "consistency", "reviewer"]
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
-    graph.add_edge("reviewer", END)
+    graph.add_conditional_edges("reviewer", route_after_review,
+                                {"refine": "refinement", "finish": "novelty"})
+    graph.add_edge("refinement", "evaluation")
+    graph.add_edge("novelty", "finalize")
+    graph.add_edge("finalize", END)
 
     details = f"Project: {project}\nType: {project_type}\nDepth: {depth}\nContext: {context[:2000]}"
     option_count = 2 if depth == "Short" else 3
-    result = graph.compile().invoke({"project": project, "details": details, "option_count": option_count})
+    max_iterations = 1 if depth == "Short" else 2
+    result = graph.compile().invoke({
+        "project": project, "details": details, "option_count": option_count,
+        "iteration": 0, "max_iterations": max_iterations,
+        "pending_changes": ["Initial selected architecture."], "architecture_versions": [],
+    })
     return {
         "clarification": result["clarification"],
         "requirements": result["requirements"],
@@ -232,6 +308,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "testing": result["testing"],
         "red_team": result["red_team"],
         "consistency": result["consistency"],
+        "refinement": result["refinement"],
         "review": result["review"],
         "feedback": result["feedback"],
         "report": result["report"],
@@ -245,5 +322,6 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
             "traceability": result["traceability_data"],
             "red_team": result["red_team_data"],
             "consistency": result["consistency_data"],
+            "versions": result["architecture_versions"],
         },
     }

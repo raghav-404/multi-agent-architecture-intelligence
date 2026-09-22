@@ -204,3 +204,14 @@ class RedTeamFinding(StrictModel):
 class RedTeamReview(StrictModel):
     summary: str
     findings: list[RedTeamFinding]
+
+
+class ArchitectureVersion(StrictModel):
+    version: int
+    architecture: ArchitectureOption
+    evaluation: ArchitectureEvaluation
+    consistency_score: int
+    traceability_coverage: int
+    critical_risks: int
+    high_risks: int
+    changes: list[str]

@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-from models import (ArchitectureSet, DatabaseDesign, RedTeamReview,
-                    RequirementSet, TestPlan)
+from models import (ArchitectureOption, ArchitectureSet, DatabaseDesign,
+                    QualityTactic, RedTeamReview, RequirementSet, TestPlan)
 from workflow import run_workflow
 
 
@@ -47,13 +47,19 @@ TESTS = TestPlan.model_validate({
 RED_TEAM = RedTeamReview.model_validate({
     "summary": "One availability risk was found.",
     "findings": [{"id": "RT-01", "severity": "high", "title": "Single instance",
-                  "description": "The API has no failover.", "evidence": "A2-RISK1",
-                  "affected_artifact_ids": ["A2-C1", "UNKNOWN"],
+                  "description": "The API has no failover.", "evidence": "A1-RISK1",
+                  "affected_artifact_ids": ["A1-C1", "UNKNOWN"],
                   "recommendation": "Add a health-checked standby."}],
 })
 
+REFINED = ArchitectureOption.model_validate(option("A1", "modular monolith"))
+REFINED.quality_tactics.append(QualityTactic(
+    attribute="availability", tactic="health-checked standby", evidence="Failover instance"))
+REFINED.risks = []
+
 
 class WorkflowTests(unittest.TestCase):
+    @patch("workflow.refine_architecture", return_value=REFINED)
     @patch("workflow.feedback_agent", return_value="Feedback")
     @patch("workflow.reviewer_agent", return_value="Score 8/10")
     @patch("workflow.red_team_agent", return_value=RED_TEAM)
@@ -65,11 +71,13 @@ class WorkflowTests(unittest.TestCase):
     @patch("workflow.requirement_agent", return_value=REQUIREMENTS)
     @patch("workflow.clarification_agent", return_value="Clarification")
     def test_short_report_contains_two_structured_options(self, _, __, architect, *args):
-        architect.return_value = ArchitectureSet(options=[option("A1", "modular monolith"), option("A2", "serverless")])
+        architect.return_value = ArchitectureSet(options=[option("A1", "modular monolith"), option("A2", "microservices")])
         result = run_workflow("Build a university booking system", depth="Short")
         self.assertEqual(len(result["analysis"]["architectures"]), 2)
         self.assertEqual(result["analysis"]["requirements"]["requirements"][0]["id"], "FR-01")
-        self.assertEqual(result["analysis"]["red_team"]["findings"][0]["affected_artifact_ids"], ["A2-C1"])
+        self.assertEqual(result["analysis"]["red_team"]["findings"][0]["affected_artifact_ids"], ["A1-C1"])
+        self.assertEqual(len(result["analysis"]["versions"]), 2)
+        self.assertIn("Added quality tactics", result["refinement"])
         self.assertIn("A1: modular monolith option", result["architecture"])
 
 
