@@ -210,6 +210,8 @@ class ArchitectureVersion(StrictModel):
     version: int
     architecture: ArchitectureOption
     evaluation: ArchitectureEvaluation
+    requirement_coverage: int
+    testing_coverage: int
     consistency_score: int
     traceability_coverage: int
     critical_risks: int

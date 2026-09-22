@@ -354,14 +354,20 @@ def architecture_changes(before, after):
     return changes or ["Clarified the architecture without changing its major structure."]
 
 
+def testing_coverage(requirements, test_plan):
+    requirement_ids = {item.id for item in requirements.requirements}
+    tested = {item for test in test_plan.test_cases for item in test.requirement_ids}
+    return round(100 * len(requirement_ids & tested) / len(requirement_ids)) if requirement_ids else 100
+
+
 def versions_markdown(versions):
     if not versions:
         return "No architecture versions were recorded."
-    lines = ["| Version | Evaluation | Traceability | Consistency | Critical Risks | High Risks |",
-             "| --- | --- | --- | --- | --- | --- |"]
+    lines = ["| Version | Requirement Fit | Traceability | Consistency | Testing | Critical Risks | High Risks |",
+             "| --- | --- | --- | --- | --- | --- | --- |"]
     for item in versions:
-        lines.append(f"| V{item.version} | {item.evaluation.weighted_total}/10 | "
-                     f"{item.traceability_coverage}% | {item.consistency_score}% | "
+        lines.append(f"| V{item.version} | {item.requirement_coverage}% | "
+                     f"{item.traceability_coverage}% | {item.consistency_score}% | {item.testing_coverage}% | "
                      f"{item.critical_risks} | {item.high_risks} |")
     if len(versions) > 1:
         lines += [f"\n### Changes in V{versions[-1].version}"]

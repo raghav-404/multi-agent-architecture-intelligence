@@ -21,7 +21,7 @@ const SECTIONS = [
   { name: "testing", label: "Testing", role: "Testing agent", icon: TestTube2 },
   { name: "red_team", label: "Red team", role: "Adversarial architecture review", icon: ShieldAlert },
   { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
-  { name: "refinement", label: "Refinement", role: "Bounded improvement loop", icon: Sparkles },
+  { name: "refinement", label: "Versions", role: "Architecture comparison", icon: Sparkles },
   { name: "adrs", label: "Decisions", role: "Architecture decision records", icon: BookOpen },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },

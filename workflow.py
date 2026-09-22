@@ -19,7 +19,7 @@ from engine import (architecture_changes, build_traceability, conflicts_markdown
                     check_consistency, consistency_markdown,
                     evaluate_architectures, evaluation_markdown, generate_adrs,
                     adrs_markdown,
-                    traceability_markdown, versions_markdown)
+                    testing_coverage, traceability_markdown, versions_markdown)
 from models import (ArchitectureOption, ArchitectureSet, ArchitectureVersion,
                     ConsistencyReport, DatabaseDesign, EvaluationResult,
                     RedTeamReview, RequirementSet, TestPlan,
@@ -193,9 +193,13 @@ def reviewer_node(state):
     consistency = ConsistencyReport.model_validate(state["consistency_data"])
     traceability = TraceabilityGraph.model_validate(state["traceability_data"])
     red_team = RedTeamReview.model_validate(state["red_team_data"])
+    requirements = RequirementSet.model_validate(state["requirements_data"])
+    tests = TestPlan.model_validate(state["testing_data"])
+    fit = next(item.score for item in selected_score.scores if item.criterion == "requirement_fit")
     versions = [ArchitectureVersion.model_validate(item) for item in state["architecture_versions"]]
     versions.append(ArchitectureVersion(
         version=len(versions) + 1, architecture=selected, evaluation=selected_score,
+        requirement_coverage=fit * 10, testing_coverage=testing_coverage(requirements, tests),
         consistency_score=consistency.score,
         traceability_coverage=traceability.coverage_percentage,
         critical_risks=sum(item.severity == "critical" for item in red_team.findings),
