@@ -37,6 +37,34 @@ def ask_groq(prompt, text):
     return response.choices[0].message.content
 
 
+def ask_groq_json(prompt, text, schema, max_tokens=1800):
+    """Ask Groq for JSON and validate it with a Pydantic model."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key or api_key == "your_groq_api_key_here":
+        raise ValueError("Missing Groq API key. Add GROQ_API_KEY to your .env file.")
+
+    client = Groq(api_key=api_key)
+    model = os.getenv("GROQ_STRUCTURED_MODEL", "openai/gpt-oss-20b")
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": text},
+        ],
+        temperature=0.2,
+        max_completion_tokens=max_tokens,
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema.__name__.lower(),
+                "strict": True,
+                "schema": schema.model_json_schema(),
+            },
+        },
+    )
+    return schema.model_validate_json(response.choices[0].message.content)
+
+
 def read_json(path, default):
     if not os.path.exists(path):
         return default

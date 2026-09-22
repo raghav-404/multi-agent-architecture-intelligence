@@ -2,13 +2,13 @@ from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from agents.architect import architect_agent
+from agents.architect import architect_agent, architecture_markdown
 from agents.clarification import clarification_agent
 from agents.database import database_agent
 from agents.feedback import feedback_agent
 from agents.novelty import novelty_agent
 from agents.planner import planner_agent
-from agents.requirement import requirement_agent
+from agents.requirement import requirement_agent, requirements_markdown
 from agents.reviewer import reviewer_agent
 from agents.testing import testing_agent
 from agents.traceability import traceability_agent
@@ -17,6 +17,9 @@ from agents.traceability import traceability_agent
 class State(TypedDict):
     project: str
     details: str
+    option_count: int
+    requirements_data: dict
+    architecture_options: list[dict]
     clarification: str
     requirements: str
     plan: str
@@ -36,7 +39,9 @@ def clarification_node(state):
 
 
 def requirement_node(state):
-    state["requirements"] = requirement_agent(state["details"])
+    result = requirement_agent(state["details"])
+    state["requirements_data"] = result.model_dump()
+    state["requirements"] = requirements_markdown(result)
     return state
 
 
@@ -46,7 +51,9 @@ def planner_node(state):
 
 
 def architect_node(state):
-    state["architecture"] = architect_agent(state["details"])
+    result = architect_agent(state["details"], state["requirements_data"], state["option_count"])
+    state["architecture_options"] = [item.model_dump() for item in result.options]
+    state["architecture"] = architecture_markdown(result)
     return state
 
 
@@ -115,7 +122,8 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     graph.add_edge("reviewer", END)
 
     details = f"Project: {project}\nType: {project_type}\nDepth: {depth}\nContext: {context[:2000]}"
-    result = graph.compile().invoke({"project": project, "details": details})
+    option_count = 2 if depth == "Short" else 3
+    result = graph.compile().invoke({"project": project, "details": details, "option_count": option_count})
     return {
         "clarification": result["clarification"],
         "requirements": result["requirements"],
@@ -128,4 +136,8 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "review": result["review"],
         "feedback": result["feedback"],
         "report": result["report"],
+        "analysis": {
+            "requirements": result["requirements_data"],
+            "architectures": result["architecture_options"],
+        },
     }

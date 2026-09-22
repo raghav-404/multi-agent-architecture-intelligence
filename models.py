@@ -1,0 +1,74 @@
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class Requirement(StrictModel):
+    id: str
+    category: Literal["functional", "non_functional"]
+    statement: str
+    priority: Literal["must", "should", "could"]
+    quality_attribute: str
+    keywords: list[str]
+
+
+class UserStory(StrictModel):
+    id: str
+    role: str
+    goal: str
+    benefit: str
+    requirement_ids: list[str]
+
+
+class RequirementSet(StrictModel):
+    summary: str
+    requirements: list[Requirement]
+    user_stories: list[UserStory]
+    assumptions: list[str]
+
+
+class ArchitectureComponent(StrictModel):
+    id: str
+    name: str
+    responsibility: str
+    communication: str
+    supports_requirements: list[str]
+
+
+class ArchitectureApi(StrictModel):
+    id: str
+    method: str
+    path: str
+    responsibility: str
+    component_id: str
+    supports_requirements: list[str]
+
+
+class QualityTactic(StrictModel):
+    attribute: str
+    tactic: str
+    evidence: str
+
+
+class ArchitectureOption(StrictModel):
+    id: str
+    name: str
+    style: str
+    summary: str
+    components: list[ArchitectureComponent]
+    apis: list[ArchitectureApi]
+    database: str
+    technology_stack: list[str]
+    quality_tactics: list[QualityTactic]
+    advantages: list[str]
+    disadvantages: list[str]
+    assumptions: list[str]
+    risks: list[str]
+
+
+class ArchitectureSet(StrictModel):
+    options: list[ArchitectureOption]

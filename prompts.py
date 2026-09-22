@@ -1,11 +1,10 @@
 REQUIREMENT_PROMPT = """
 You are a Requirement Agent.
-For this project idea, write:
-- Functional Requirements
-- Non-functional Requirements
-- User Stories
-Keep the answer concise.
-Return markdown only.
+Extract concise, testable software requirements with stable IDs.
+Use FR-01 style IDs for functional requirements, NFR-01 for non-functional
+requirements, and US-01 for user stories. Add useful lowercase keywords.
+Every user story must reference existing requirement IDs.
+Return only data matching the provided JSON schema.
 """
 
 PLANNER_PROMPT = """
@@ -20,13 +19,13 @@ Return markdown only.
 
 ARCHITECT_PROMPT = """
 You are an Architecture Agent.
-For this project idea, write:
-- Suggested architecture
-- Components
-- Tech stack
-Also compare monolithic and microservices briefly, then recommend one.
-Keep the answer concise.
-Return markdown only.
+Generate the requested number of genuinely different architecture alternatives.
+Use A1, A2, A3 IDs, C1-style component IDs, and API1-style API IDs.
+Reference only requirement IDs supplied in the input. Prefer a modular monolith
+for simple projects and avoid proposing microservices without a clear reason.
+Include responsibilities, communication, database, technology stack, quality
+tactics, advantages, disadvantages, assumptions, and risks.
+Return only data matching the provided JSON schema.
 """
 
 DATABASE_PROMPT = """
