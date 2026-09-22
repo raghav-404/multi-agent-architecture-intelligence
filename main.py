@@ -8,8 +8,10 @@ from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from agents.refine import refine_agent
-from engine import analyze_change_impact, impact_markdown
-from models import RequirementSet, TraceabilityGraph
+from engine import (analyze_change_impact, analyze_scenario, impact_markdown,
+                    scenario_markdown)
+from models import (ArchitectureOption, DatabaseDesign, EvaluationResult,
+                    RequirementSet, TraceabilityGraph)
 from utils import (get_history_item, load_history, make_pdf, register_user,
                    save_history, verify_user)
 from workflow import run_workflow
@@ -51,6 +53,11 @@ class RefineRequest(BaseModel):
 class ImpactRequest(BaseModel):
     analysis_id: str
     change_request: str
+
+
+class ScenarioRequest(BaseModel):
+    analysis_id: str
+    scenario_id: str
 
 
 def current_user(request):
@@ -156,6 +163,26 @@ def impact(data: ImpactRequest, request: Request):
     graph = TraceabilityGraph.model_validate(analysis["traceability"])
     result = analyze_change_impact(data.change_request, requirements, graph)
     return {**result.model_dump(), "markdown": impact_markdown(result)}
+
+
+@app.post("/scenario")
+def scenario(data: ScenarioRequest, request: Request):
+    username = current_user(request)
+    item = get_history_item(username, data.analysis_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    analysis = item.get("result", {}).get("analysis", {})
+    if not analysis.get("evaluation"):
+        raise HTTPException(status_code=400, detail="This older report has no structured architecture data.")
+    evaluation = EvaluationResult.model_validate(analysis["evaluation"])
+    architecture = next(ArchitectureOption.model_validate(item) for item in analysis["architectures"]
+                        if item["id"] == evaluation.selected_architecture_id)
+    database = DatabaseDesign.model_validate(analysis["database"])
+    try:
+        result = analyze_scenario(data.scenario_id, architecture, database)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {**result.model_dump(), "markdown": scenario_markdown(result)}
 
 
 @app.post("/pdf")

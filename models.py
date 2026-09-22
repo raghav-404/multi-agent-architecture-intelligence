@@ -227,3 +227,15 @@ class ImpactResult(StrictModel):
     affected_risks: list[str]
     impact_level: Literal["none", "low", "medium", "high"]
     regression_suggestions: list[str]
+
+
+class ScenarioResult(StrictModel):
+    scenario_id: str
+    scenario_name: str
+    affected_components: list[str]
+    affected_apis: list[str]
+    affected_database_entities: list[str]
+    risks: list[str]
+    mitigations: list[str]
+    impact_level: Literal["low", "medium", "high"]
+    disclaimer: str

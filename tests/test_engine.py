@@ -1,7 +1,8 @@
 import unittest
 
-from engine import (analyze_change_impact, build_traceability, check_consistency,
-                    detect_requirement_conflicts, evaluate_architectures)
+from engine import (analyze_change_impact, analyze_scenario, build_traceability,
+                    check_consistency, detect_requirement_conflicts,
+                    evaluate_architectures)
 from models import ArchitectureOption, RequirementSet, TestPlan
 from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
 
@@ -78,6 +79,22 @@ class EvaluationTests(unittest.TestCase):
         self.assertIn("A1-C1", impact.affected_components)
         self.assertIn("TC-01", impact.affected_tests)
         self.assertIn("A1-RISK1", impact.affected_risks)
+
+    def test_scenario_analysis_uses_selected_artifacts(self):
+        result = analyze_scenario(
+            "traffic_100x", ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            DATABASE)
+        self.assertEqual(result.impact_level, "high")
+        self.assertEqual(result.affected_components, ["A1-C1"])
+        self.assertEqual(result.affected_database_entities, ["DBE-01"])
+        self.assertIn("not a performance prediction", result.disclaimer)
+
+    def test_scenario_reports_missing_dependency(self):
+        result = analyze_scenario(
+            "authentication_failure", ArchitectureOption.model_validate(option("A1", "modular monolith")),
+            DATABASE)
+        self.assertEqual(result.affected_components, [])
+        self.assertTrue(any("No explicit" in risk for risk in result.risks))
 
 
 if __name__ == "__main__":

@@ -201,7 +201,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .document-tools { display: flex; gap: 14px; align-items: center; }
 .document-tools > span { color: #7e8793; font-size: 10px; white-space: nowrap; }
 .refine-form { display: grid; grid-template-columns: 18px minmax(150px, 1fr) auto; gap: 10px; align-items: center; padding: 10px 16px; color: var(--blue); background: #f7f9fc; border-bottom: 1px solid var(--soft-line); }
-.refine-form input { width: 100%; height: 37px; padding: 0 10px; color: var(--ink); background: #fff; border: 1px solid #ccd3dc; border-radius: 6px; outline: none; font-size: 12px; }
+.refine-form input, .refine-form select { width: 100%; height: 37px; padding: 0 10px; color: var(--ink); background: #fff; border: 1px solid #ccd3dc; border-radius: 6px; outline: none; font-size: 12px; }
 .refine-form .button { min-height: 37px; }
 .report-content, .report-editor { min-height: 650px; padding: clamp(28px, 5vw, 64px); }
 .report-content { color: #292d34; font: 16px/1.72 Georgia, "Times New Roman", serif; overflow-wrap: anywhere; }

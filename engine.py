@@ -3,7 +3,7 @@ import re
 from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
                     ConsistencyIssue, ConsistencyReport, EvaluationResult,
                     ImpactResult, RequirementConflict, TraceEdge, TraceNode,
-                    TraceabilityGraph)
+                    ScenarioResult, TraceabilityGraph)
 
 
 CRITERIA = ["requirement_fit", "scalability", "security", "performance",
@@ -52,6 +52,33 @@ CONFLICT_TAGS = {
     "geo_availability": ["multi region", "multi-region", "global availability", "region failure"],
     "privacy": ["privacy", "data minimization", "personal data", "gdpr"],
     "analytics": ["analytics", "tracking", "behavior data", "behaviour data"],
+}
+
+SCENARIOS = {
+    "users_10x": ("10x increase in users", "medium", [], True,
+                  ["Higher request concurrency", "Database connection pressure"],
+                  ["Add horizontal scaling", "Use connection pooling", "Cache frequent reads"]),
+    "traffic_100x": ("100x increase in traffic", "high", [], True,
+                     ["Backend saturation", "Database exhaustion", "Increased latency"],
+                     ["Use a load balancer", "Autoscale stateless components", "Add caching and backpressure"]),
+    "database_failure": ("Database failure", "high", [], True,
+                         ["Persistent operations become unavailable", "Possible data loss during recovery"],
+                         ["Add health checks and failover", "Test backups and point-in-time recovery"]),
+    "api_failure": ("API failure", "high", ["api", "backend", "service"], False,
+                    ["Client operations fail", "Dependent components may cascade"],
+                    ["Add timeouts and retries", "Use circuit breakers", "Provide graceful error responses"]),
+    "authentication_failure": ("Authentication service failure", "high", ["auth", "identity", "login"], False,
+                               ["Users cannot establish sessions", "Protected operations become unavailable"],
+                               ["Use redundant identity services", "Cache safe session validation data"]),
+    "payment_failure": ("Payment service failure", "high", ["payment", "billing", "checkout"], False,
+                        ["Transactions remain incomplete", "Duplicate retries may charge users twice"],
+                        ["Use idempotency keys", "Queue retries", "Reconcile uncertain transactions"]),
+    "network_latency": ("Network latency", "medium", [], False,
+                        ["Synchronous calls become slower", "Timeouts may trigger retry storms"],
+                        ["Set timeout budgets", "Reduce chatty calls", "Cache remote data"]),
+    "region_failure": ("Cloud region failure", "high", [], True,
+                       ["Regional services become unavailable", "Recovery may lose recent writes"],
+                       ["Document recovery objectives", "Replicate critical data", "Practice regional failover"]),
 }
 
 
@@ -408,4 +435,42 @@ def impact_markdown(result):
     lines += ["\n### Regression Suggestions"]
     lines += [f"- {item}" for item in result.regression_suggestions] or ["- No regression tests identified."]
     lines += ["\n*This is rule-based architectural impact analysis, not a production change prediction.*"]
+    return "\n".join(lines)
+
+
+def analyze_scenario(scenario_id, architecture, database):
+    if scenario_id not in SCENARIOS:
+        raise ValueError("Unknown scenario.")
+    name, level, keywords, include_database, risks, mitigations = SCENARIOS[scenario_id]
+    if keywords:
+        components = [item.id for item in architecture.components
+                      if any(word in f"{item.name} {item.responsibility}".lower() for word in keywords)]
+    else:
+        components = [item.id for item in architecture.components]
+    if keywords and not components:
+        risks = [*risks, f"No explicit {name.lower()} component is documented."]
+        mitigations = [*mitigations, "Model the missing dependency and its failure boundary."]
+    component_ids = set(components)
+    apis = [item.id for item in architecture.apis
+            if not keywords or item.component_id in component_ids
+            or any(word in f"{item.path} {item.responsibility}".lower() for word in keywords)]
+    entities = [item.id for item in database.entities] if include_database else []
+    return ScenarioResult(
+        scenario_id=scenario_id, scenario_name=name,
+        affected_components=sorted(components), affected_apis=sorted(apis),
+        affected_database_entities=sorted(entities), risks=risks,
+        mitigations=mitigations, impact_level=level,
+        disclaimer="Architectural scenario analysis only; this is not a performance prediction.",
+    )
+
+
+def scenario_markdown(result):
+    lines = [f"### Scenario: {result.scenario_name}",
+             f"**Architecture impact:** {result.impact_level.title()}  ",
+             f"**Affected components:** {', '.join(result.affected_components) or 'None identified'}  ",
+             f"**Affected APIs:** {', '.join(result.affected_apis) or 'None identified'}  ",
+             f"**Affected database entities:** {', '.join(result.affected_database_entities) or 'None'}",
+             "\n### Potential Risks", *[f"- {item}" for item in result.risks],
+             "\n### Suggested Mitigations", *[f"- {item}" for item in result.mitigations],
+             f"\n*{result.disclaimer}*"]
     return "\n".join(lines)
