@@ -239,3 +239,14 @@ class ScenarioResult(StrictModel):
     mitigations: list[str]
     impact_level: Literal["low", "medium", "high"]
     disclaimer: str
+
+
+class ArchitectureDecisionRecord(StrictModel):
+    id: str
+    title: str
+    context: str
+    alternatives: list[str]
+    decision: str
+    reason: str
+    trade_offs: list[str]
+    status: Literal["Accepted", "Superseded"]

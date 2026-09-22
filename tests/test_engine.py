@@ -2,7 +2,7 @@ import unittest
 
 from engine import (analyze_change_impact, analyze_scenario, build_traceability,
                     check_consistency, detect_requirement_conflicts,
-                    evaluate_architectures)
+                    evaluate_architectures, generate_adrs)
 from models import ArchitectureOption, RequirementSet, TestPlan
 from tests.test_workflow import DATABASE, REQUIREMENTS, TESTS, option
 
@@ -95,6 +95,15 @@ class EvaluationTests(unittest.TestCase):
             DATABASE)
         self.assertEqual(result.affected_components, [])
         self.assertTrue(any("No explicit" in risk for risk in result.risks))
+
+    def test_adrs_use_deterministic_selection(self):
+        options = [ArchitectureOption.model_validate(option("A1", "modular monolith")),
+                   ArchitectureOption.model_validate(option("A2", "microservices"))]
+        evaluation = evaluate_architectures(REQUIREMENTS, options)
+        adrs = generate_adrs(REQUIREMENTS, options, evaluation, DATABASE)
+        self.assertEqual(adrs[0].decision, options[0].name)
+        self.assertIn(str(evaluation.evaluations[0].weighted_total), adrs[0].reason)
+        self.assertEqual(adrs[1].decision, "PostgreSQL")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import {
-  AlignLeft, Archive, ArrowRight, Bot, Check, ChevronDown, Clipboard,
+  AlignLeft, Archive, ArrowRight, BookOpen, Bot, Check, ChevronDown, Clipboard,
   Database, Download, FileText, FlaskConical, Gauge, GitBranch, LayoutDashboard, LoaderCircle,
   LogOut, Menu, Network, Pencil, Plus, Search, ShieldCheck, Sparkles,
   ShieldAlert, TestTube2, TriangleAlert, UserRound, X
@@ -22,6 +22,7 @@ const SECTIONS = [
   { name: "red_team", label: "Red team", role: "Adversarial architecture review", icon: ShieldAlert },
   { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
   { name: "refinement", label: "Refinement", role: "Bounded improvement loop", icon: Sparkles },
+  { name: "adrs", label: "Decisions", role: "Architecture decision records", icon: BookOpen },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },
   { name: "impact", label: "Change impact", role: "Traceability traversal", icon: GitBranch },
@@ -34,7 +35,7 @@ const PIPELINE_SECTIONS = SECTIONS.filter(item => !["impact", "scenario", "repor
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
   "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
-  "Building traceability", "Creating the test plan", "Running adversarial review", "Validating artifact consistency", "Reviewing the report", "Refining the architecture", "Preparing feedback"
+  "Building traceability", "Creating the test plan", "Running adversarial review", "Validating artifact consistency", "Reviewing the report", "Refining the architecture", "Recording architecture decisions", "Preparing feedback"
 ];
 
 marked.setOptions({ gfm: true, breaks: true });

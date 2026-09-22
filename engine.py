@@ -1,6 +1,7 @@
 import re
 
-from models import (ArchitectureEvaluation, ConflictReport, CriterionScore,
+from models import (ArchitectureDecisionRecord, ArchitectureEvaluation,
+                    ConflictReport, CriterionScore,
                     ConsistencyIssue, ConsistencyReport, EvaluationResult,
                     ImpactResult, RequirementConflict, TraceEdge, TraceNode,
                     ScenarioResult, TraceabilityGraph)
@@ -473,4 +474,42 @@ def scenario_markdown(result):
              "\n### Potential Risks", *[f"- {item}" for item in result.risks],
              "\n### Suggested Mitigations", *[f"- {item}" for item in result.mitigations],
              f"\n*{result.disclaimer}*"]
+    return "\n".join(lines)
+
+
+def generate_adrs(requirements, options, evaluation, database):
+    selected = next(item for item in options if item.id == evaluation.selected_architecture_id)
+    score = next(item for item in evaluation.evaluations
+                 if item.architecture_id == evaluation.selected_architecture_id)
+    priorities = [item.quality_attribute for item in requirements.requirements
+                  if item.category == "non_functional" and item.priority == "must"]
+    architecture_adr = ArchitectureDecisionRecord(
+        id="ADR-001", title=f"Select {selected.name}",
+        context="The architecture must satisfy the project requirements"
+                + (f" with priority on {', '.join(priorities)}." if priorities else "."),
+        alternatives=[f"{item.id}: {item.name} ({item.style})" for item in options],
+        decision=selected.name,
+        reason=f"Highest deterministic weighted score: {score.weighted_total}/10.",
+        trade_offs=selected.disadvantages + [item.description for item in selected.risks],
+        status="Accepted",
+    )
+    database_alternatives = sorted({item.database for item in options})
+    database_adr = ArchitectureDecisionRecord(
+        id="ADR-002", title=f"Use {database.engine}",
+        context="The selected architecture requires a documented persistence decision.",
+        alternatives=database_alternatives,
+        decision=database.engine, reason=database.rationale,
+        trade_offs=database.risks, status="Accepted",
+    )
+    return [architecture_adr, database_adr]
+
+
+def adrs_markdown(adrs):
+    lines = []
+    for item in adrs:
+        lines += [f"### {item.id}: {item.title}", f"**Status:** {item.status}",
+                  f"\n**Context:** {item.context}", "\n**Alternatives:**",
+                  *[f"- {value}" for value in item.alternatives],
+                  f"\n**Decision:** {item.decision}", f"\n**Reason:** {item.reason}",
+                  "\n**Trade-offs:**", *[f"- {value}" for value in item.trade_offs], ""]
     return "\n".join(lines)

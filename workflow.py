@@ -17,7 +17,8 @@ from agents.testing import testing_agent, testing_markdown
 from engine import (architecture_changes, build_traceability, conflicts_markdown,
                     detect_requirement_conflicts,
                     check_consistency, consistency_markdown,
-                    evaluate_architectures, evaluation_markdown,
+                    evaluate_architectures, evaluation_markdown, generate_adrs,
+                    adrs_markdown,
                     traceability_markdown, versions_markdown)
 from models import (ArchitectureOption, ArchitectureSet, ArchitectureVersion,
                     ConsistencyReport, DatabaseDesign, EvaluationResult,
@@ -42,6 +43,7 @@ class State(TypedDict):
     consistency_data: dict
     traceability_data: dict
     red_team_data: dict
+    adrs_data: list[dict]
     clarification: str
     requirements: str
     conflicts: str
@@ -55,6 +57,7 @@ class State(TypedDict):
     consistency: str
     red_team: str
     refinement: str
+    adrs: str
     review: str
     feedback: str
     report: str
@@ -242,6 +245,17 @@ def finalize_node(state):
     return state
 
 
+def adr_node(state):
+    requirements = RequirementSet.model_validate(state["requirements_data"])
+    options = [ArchitectureOption.model_validate(item) for item in state["architecture_options"]]
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    database = DatabaseDesign.model_validate(state["database_data"])
+    result = generate_adrs(requirements, options, evaluation, database)
+    state["adrs_data"] = [item.model_dump() for item in result]
+    state["adrs"] = adrs_markdown(result)
+    return state
+
+
 def build_report(state):
     sections = [
         "# Architecture Intelligence Report",
@@ -259,6 +273,7 @@ def build_report(state):
         "## Red Team Architecture Review\n" + state.get("red_team", ""),
         "## Cross-Agent Consistency\n" + state.get("consistency", ""),
         "## Architecture Refinement\n" + state.get("refinement", ""),
+        "## Architecture Decision Records\n" + state.get("adrs", ""),
     ]
     return "\n\n".join(sections)
 
@@ -271,7 +286,8 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     nodes += [("evaluation", evaluation_node), ("database", database_node)]
     nodes += [("testing", testing_node), ("traceability", traceability_node)]
     nodes += [("red_team", red_team_node), ("consistency", consistency_node), ("reviewer", reviewer_node)]
-    nodes += [("refinement", refinement_node), ("novelty", novelty_node), ("finalize", finalize_node)]
+    nodes += [("refinement", refinement_node), ("adrs", adr_node),
+              ("novelty", novelty_node), ("finalize", finalize_node)]
 
     for name, node in nodes:
         graph.add_node(name, node)
@@ -282,8 +298,9 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
     graph.add_conditional_edges("reviewer", route_after_review,
-                                {"refine": "refinement", "finish": "novelty"})
+                                {"refine": "refinement", "finish": "adrs"})
     graph.add_edge("refinement", "evaluation")
+    graph.add_edge("adrs", "novelty")
     graph.add_edge("novelty", "finalize")
     graph.add_edge("finalize", END)
 
@@ -309,6 +326,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "red_team": result["red_team"],
         "consistency": result["consistency"],
         "refinement": result["refinement"],
+        "adrs": result["adrs"],
         "review": result["review"],
         "feedback": result["feedback"],
         "report": result["report"],
@@ -323,5 +341,6 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
             "red_team": result["red_team_data"],
             "consistency": result["consistency_data"],
             "versions": result["architecture_versions"],
+            "adrs": result["adrs_data"],
         },
     }
