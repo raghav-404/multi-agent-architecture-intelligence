@@ -1,127 +1,122 @@
-# Multi-Agent Architecture Intelligence System
+# MARIS: Multi-Agent Architecture Intelligence System
 
-A simple Software Engineering semester project that uses multiple AI agents to
-turn a project idea into an initial software architecture report.
+MARIS is a Software Engineering semester project that turns a software idea
+into an evaluated, traceable, and reviewable architecture report.
 
-## Description
+It is not only a multi-agent chatbot. Groq agents generate and critique design
+artifacts, while deterministic Python rules score architectures, find supported
+conflicts, validate artifact references, calculate coverage, and analyze change
+impact.
 
-The user enters a software project idea, such as:
+## Main Features
+
+- Structured functional requirements, NFRs, user stories, and stable IDs
+- Two architecture alternatives for Short reports and three for other depths
+- Deterministic architecture scoring with weights, evidence, and selection
+- Rule-based requirement conflict detection
+- Structured database designs and test cases
+- Cross-agent architecture, database, requirement, API, and test validation
+- Requirement-to-story/component/entity/API/test/risk traceability graph
+- Adversarial red-team architecture review
+- Bounded architecture refinement loop with V1/V2 comparison
+- Architecture Decision Records (ADRs)
+- Traceability-based change-impact analysis
+- Rule-based failure and growth scenario analysis
+- React workspace with section editing, Mermaid diagrams, PDF, and Markdown export
+- Authentication and per-user JSON report history
+
+## Design Principle
 
 ```text
-Build an Online Food Delivery System
+Groq agents
+  Generation, explanation, critique, and refinement
+
+Python rule engine
+  Scoring, validation, conflict rules, traceability,
+  coverage, impact traversal, and scenario rules
 ```
 
-The system sends the idea through sequential agents. Each agent generates one
-part of the final report, and the browser UI displays the output agent by
-agent. The final report can also be downloaded as a PDF.
+This split makes the system easier to explain, test, and reproduce than a
+workflow in which every decision is delegated to an LLM.
 
-## Features
-
-- FastAPI backend with protected API endpoints
-- Responsive React and Vite frontend served by FastAPI
-- SaaS-style workspace with report navigation and live agent progress
-- LangGraph sequential multi-agent workflow
-- Groq API for AI-generated responses
-- Agent-by-agent report display
-- Clarification and assumptions agent
-- Architecture debate and recommendation
-- Risk, testing, diagram, effort, use case, and roadmap generation
-- Reviewer feedback loop
-- Requirements traceability matrix
-- Dedicated testing agent with unit, integration, acceptance, and edge-case tests
-- Mermaid architecture and ER diagrams rendered in the browser
-- Section-specific AI follow-up and regeneration
-- Optional rubric or notes upload
-- Editable report sections before export
-- Full report view
-- PDF report download
-- Markdown report download
-- Copy report button
-- Project type and report depth options
-- JSON history storage
-- Simple username/password accounts with private report history
-- Render deployment configuration
-
-## Agent Workflow
+## Workflow
 
 ```text
+Project Idea
+    |
+    v
 Clarification Agent
-      ↓
-Requirement Agent
-      ↓
-Project Planner Agent
-      ↓
-Architecture Debate Agent
-      ↓
-Database Agent
-      ↓
-Novelty Analysis Agent
-      ↓
-Traceability Agent
-      ↓
-Testing Agent
-      ↓
-Reviewer Agent
-      ↓
-Feedback Loop Agent
-      ↓
-Final Report
+    |
+Requirements Agent --> Requirement Conflict Detector
+    |
+Planner Agent
+    |
+Competing Architecture Agent (2-3 options)
+    |
+Deterministic Evaluation and Selection
+    |
+Database Agent --> Testing Agent --> Traceability Engine
+    |
+Red Team Agent --> Consistency Validator --> Reviewer
+    |                                      |
+    | fail                                 | pass
+    v                                      v
+Architecture Refinement -----------> ADRs and Final Report
+    |
+    +---- Re-evaluate (maximum 1-2 refinements)
 ```
 
-## Agent Responsibilities
+Change impact and scenarios run after a report has been saved:
 
-| Agent | Output |
-| --- | --- |
-| Requirement Agent | Functional requirements, non-functional requirements, user stories |
-| Project Planner Agent | WBS, milestones, sprint plan |
-| Architecture Agent | Architecture options, debate, components, tech stack |
-| Database Agent | Tables, fields, relationships |
-| Novelty Analysis Agent | Risks, testing, diagrams, effort, use cases, roadmap |
-| Traceability Agent | Requirement-to-component, database, and test mappings |
-| Testing Agent | Unit, integration, acceptance, and edge-case test plan |
-| Reviewer Agent | Completeness score, suggestions, final summary |
-| Feedback Loop Agent | Agent-wise improvement suggestions for the next version |
+```text
+Change Request --> Requirement Match --> Traceability Traversal --> Impact
+Scenario Choice --> Deterministic Failure Rules --> Risks and Mitigations
+```
 
-## Tech Stack
+## Architecture Evaluation
 
-- Python
-- FastAPI
-- React, Vite, and Lucide icons
-- LangGraph
-- Groq API
-- Pydantic
-- ReportLab
+Each alternative receives a score from 0 to 10 for:
+
+- Requirement fit
+- Scalability
+- Security
+- Performance
+- Maintainability
+- Cost
+- Complexity, where a higher score means simpler operation
+- Availability
+
+Requirement fit is calculated from referenced requirement IDs. Other scores
+start from documented architecture-style baselines, receive NFR-derived
+weights, and can be adjusted by explicit quality tactics. The highest weighted
+score wins; simplicity is the tie-breaker.
 
 ## Project Structure
 
 ```text
-agents/
-    requirement.py
-    planner.py
+agents/                    Groq-backed generation and review functions
     architect.py
+    clarification.py
     database.py
-    traceability.py
-    testing.py
+    feedback.py
+    novelty.py
+    planner.py
+    red_team.py
     refine.py
+    requirement.py
     reviewer.py
+    testing.py
 
-workflow.py
-prompts.py
-main.py
-utils.py
-static/
-    index.html              # generated production frontend
-    assets/
-frontend/
-    index.html
-    src/App.jsx
-    src/styles.css
-package.json
-vite.config.js
-history.json
-requirements.txt
-.env
-README.md
+models.py                  Pydantic artifact schemas
+engine.py                  Deterministic intelligence rules
+workflow.py                LangGraph workflow and bounded loop
+prompts.py                 Agent instructions
+main.py                    FastAPI routes
+utils.py                   Groq, JSON storage, authentication, and PDF helpers
+
+frontend/                  React/Vite source
+static/                    Generated production frontend
+tests/                     Rule, workflow, storage, and API tests
 ```
 
 ## Setup
@@ -132,111 +127,98 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 npm install
-npm run build
+cp .env.example .env
 ```
 
-Edit `.env` and add your Groq API key:
+Add your Groq API key to `.env`:
 
 ```text
-GROQ_API_KEY=your_real_key_here
-SESSION_SECRET=a_long_random_value_for_sessions
+GROQ_API_KEY=your_real_key
+SESSION_SECRET=replace_with_a_long_random_value
 ```
 
-You can copy `.env.example` as the starting point. The first person who uses a
-new username and password should choose **Create account**. Future visits use
-**Sign in**. Account and history data are saved locally in ignored JSON files.
+MARIS uses `openai/gpt-oss-20b` for schema-constrained Groq responses by
+default. Both Groq models can be changed through environment variables.
 
-## Run the App
+## Run
+
+Build the React frontend and start FastAPI:
 
 ```bash
+npm run build
 uvicorn main:app --reload
 ```
 
-The app will run at:
+Open `http://127.0.0.1:8000`.
 
-```text
-http://127.0.0.1:8000
-```
-
-Open this URL in your browser. No separate Streamlit command is needed.
-
-For frontend development, keep FastAPI running on port 8000 and start Vite in
-a second terminal:
+For frontend development, keep FastAPI on port 8000 and run this in a second
+terminal:
 
 ```bash
 npm run dev
 ```
 
-Then open `http://127.0.0.1:5173`. Vite forwards API calls to FastAPI.
+Then open `http://127.0.0.1:5173`.
 
-## API Example
+## Test
+
+The automated tests do not spend Groq quota because all agents are mocked:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project":"Build an Online Food Delivery System",
-  "project_type":"Web App",
-    "depth":"Short",
-    "context":"Optional rubric or project notes"
-  }'
+python -m unittest discover -s tests -v
+npm run build
 ```
 
-The API returns separate fields for each agent:
+The tests cover evaluation, conflicts, consistency, traceability, impact,
+scenarios, ADRs, bounded refinement, JSON storage, authentication, and API
+integration.
 
-```json
-{
-  "clarification": "...",
-  "requirements": "...",
-  "plan": "...",
-  "architecture": "...",
-  "database": "...",
-  "novelty": "...",
-  "traceability": "...",
-  "testing": "...",
-  "review": "...",
-  "feedback": "...",
-  "report": "..."
-}
+## API
+
+All analysis endpoints require an authenticated session.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/register` | Create a local account |
+| POST | `/login` | Start a session |
+| POST | `/analyze` | Run the complete architecture workflow |
+| POST | `/refine` | Revise one report section |
+| POST | `/impact` | Analyze a change using saved traceability |
+| POST | `/scenario` | Run a predefined architecture scenario |
+| GET | `/history` | Load the user's reports |
+| POST | `/pdf` | Generate a PDF report |
+
+## Storage
+
+Local accounts and reports are stored in ignored JSON files. New history
+records contain the complete structured analysis; older markdown-only records
+remain readable but cannot run impact or scenario analysis.
+
+Vercel uses a temporary filesystem, so hosted JSON data may reset. That is
+acceptable for a semester demonstration. A persistent database is the logical
+next production upgrade.
+
+## Academic Novelty
+
+The novelty is the combination of specialized LLM roles with deterministic
+software-engineering analysis. MARIS generates competing architectures,
+produces auditable selection evidence, detects cross-artifact contradictions,
+maintains a traversable traceability model, attacks the selected architecture,
+and measures refinement across versions.
+
+The system deliberately does not generate full applications, predict real
+performance, deploy infrastructure, or require a graph database.
+
+## Deployment
+
+The included `vercel.json` builds React and deploys FastAPI. Add these Vercel
+environment variables before deploying:
+
+```text
+GROQ_API_KEY
+SESSION_SECRET
+COOKIE_SECURE=true
 ```
 
-## Novelty
-
-The novelty of this project is the use of a role-based multi-agent workflow for
-early software engineering planning. Instead of one chatbot response, the system
-simulates a small software team with specialized agents for clarification,
-requirements, planning, architecture debate, database design, novelty analysis,
-review, and feedback.
-
-## History Format
-
-Each generated report is saved in `history.json` and linked to its username:
-
-```json
-[
-  {
-    "username": "student_name",
-    "project": "Online Food Delivery",
-    "report": "..."
-  }
-]
-```
-
-## Phase 2 Scope
-
-This version remains intentionally simple: the workflow is sequential and
-history uses local JSON files. For a production deployment, use a real database
-for users and history.
-
-## Deploy on Vercel for Free
-
-1. Push the project to GitHub.
-2. Go to Vercel and choose **Add New Project**.
-3. Import the GitHub repository. `vercel.json` selects FastAPI and builds React.
-4. Add `GROQ_API_KEY` and `SESSION_SECRET` in the Environment Variables screen.
-5. Deploy on the free Hobby plan.
-
-The included `vercel.json` allows an agent workflow to run for up to 60 seconds.
-Vercel Functions have temporary filesystems, so hosted accounts and history can
-reset when the serverless function restarts. The hosted app is suitable for a
-demo; use a real database for persistent accounts and reports in a later phase.
+Push the repository to GitHub, import it into Vercel, and deploy with the
+included configuration.
