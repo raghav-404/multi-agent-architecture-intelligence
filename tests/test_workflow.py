@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-from models import ArchitectureSet, DatabaseDesign, RequirementSet, TestPlan
+from models import (ArchitectureSet, DatabaseDesign, RedTeamReview,
+                    RequirementSet, TestPlan)
 from workflow import run_workflow
 
 
@@ -43,10 +44,19 @@ TESTS = TestPlan.model_validate({
                     "component_ids": ["A1-C1"], "api_ids": ["A1-API1"]}],
 })
 
+RED_TEAM = RedTeamReview.model_validate({
+    "summary": "One availability risk was found.",
+    "findings": [{"id": "RT-01", "severity": "high", "title": "Single instance",
+                  "description": "The API has no failover.", "evidence": "A2-RISK1",
+                  "affected_artifact_ids": ["A2-C1", "UNKNOWN"],
+                  "recommendation": "Add a health-checked standby."}],
+})
+
 
 class WorkflowTests(unittest.TestCase):
     @patch("workflow.feedback_agent", return_value="Feedback")
     @patch("workflow.reviewer_agent", return_value="Score 8/10")
+    @patch("workflow.red_team_agent", return_value=RED_TEAM)
     @patch("workflow.testing_agent", return_value=TESTS)
     @patch("workflow.novelty_agent", return_value="Novelty")
     @patch("workflow.database_agent", return_value=DATABASE)
@@ -59,6 +69,7 @@ class WorkflowTests(unittest.TestCase):
         result = run_workflow("Build a university booking system", depth="Short")
         self.assertEqual(len(result["analysis"]["architectures"]), 2)
         self.assertEqual(result["analysis"]["requirements"]["requirements"][0]["id"], "FR-01")
+        self.assertEqual(result["analysis"]["red_team"]["findings"][0]["affected_artifact_ids"], ["A2-C1"])
         self.assertIn("A1: modular monolith option", result["architecture"])
 
 

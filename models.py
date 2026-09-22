@@ -189,3 +189,18 @@ class TraceabilityGraph(StrictModel):
     edges: list[TraceEdge]
     coverage_percentage: int
     uncovered_requirements: list[str]
+
+
+class RedTeamFinding(StrictModel):
+    id: str
+    severity: Literal["critical", "high", "medium", "low"]
+    title: str
+    description: str
+    evidence: str
+    affected_artifact_ids: list[str]
+    recommendation: str
+
+
+class RedTeamReview(StrictModel):
+    summary: str
+    findings: list[RedTeamFinding]

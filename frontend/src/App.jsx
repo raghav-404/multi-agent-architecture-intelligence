@@ -5,7 +5,7 @@ import {
   AlignLeft, Archive, ArrowRight, Bot, Check, ChevronDown, Clipboard,
   Database, Download, FileText, FlaskConical, LayoutDashboard, LoaderCircle,
   LogOut, Menu, Network, Pencil, Plus, Search, ShieldCheck, Sparkles,
-  TestTube2, TriangleAlert, UserRound, X
+  ShieldAlert, TestTube2, TriangleAlert, UserRound, X
 } from "lucide-react";
 
 const SECTIONS = [
@@ -19,6 +19,7 @@ const SECTIONS = [
   { name: "novelty", label: "Novelty", role: "Novelty agent", icon: Sparkles },
   { name: "traceability", label: "Traceability", role: "Relationship engine", icon: ShieldCheck },
   { name: "testing", label: "Testing", role: "Testing agent", icon: TestTube2 },
+  { name: "red_team", label: "Red team", role: "Adversarial architecture review", icon: ShieldAlert },
   { name: "consistency", label: "Consistency", role: "Cross-agent validator", icon: ShieldCheck },
   { name: "review", label: "Review", role: "Reviewer agent", icon: Check },
   { name: "feedback", label: "Feedback", role: "Feedback loop", icon: Bot },
@@ -28,7 +29,7 @@ const SECTIONS = [
 const PROGRESS = [
   "Clarifying assumptions", "Structuring requirements", "Checking requirement conflicts", "Building the project plan",
   "Comparing architecture options", "Scoring architecture options", "Designing the data model", "Finding novelty and risks",
-  "Building traceability", "Creating the test plan", "Validating artifact consistency", "Reviewing the report", "Preparing feedback"
+  "Building traceability", "Creating the test plan", "Running adversarial review", "Validating artifact consistency", "Reviewing the report", "Preparing feedback"
 ];
 
 marked.setOptions({ gfm: true, breaks: true });

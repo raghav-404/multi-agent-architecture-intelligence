@@ -10,6 +10,7 @@ from agents.feedback import feedback_agent
 from agents.novelty import novelty_agent
 from agents.planner import planner_agent
 from agents.requirement import requirement_agent, requirements_markdown
+from agents.red_team import red_team_agent, red_team_markdown
 from agents.reviewer import reviewer_agent
 from agents.testing import testing_agent, testing_markdown
 from engine import (build_traceability, conflicts_markdown, detect_requirement_conflicts,
@@ -32,6 +33,7 @@ class State(TypedDict):
     testing_data: dict
     consistency_data: dict
     traceability_data: dict
+    red_team_data: dict
     clarification: str
     requirements: str
     conflicts: str
@@ -43,6 +45,7 @@ class State(TypedDict):
     traceability: str
     testing: str
     consistency: str
+    red_team: str
     review: str
     feedback: str
     report: str
@@ -145,6 +148,26 @@ def consistency_node(state):
     return state
 
 
+def red_team_node(state):
+    evaluation = EvaluationResult.model_validate(state["evaluation_data"])
+    selected = next(item for item in state["architecture_options"]
+                    if item["id"] == evaluation.selected_architecture_id)
+    text = json.dumps({"requirements": state["requirements_data"],
+                       "architecture": selected, "database": state["database_data"],
+                       "testing": state["testing_data"], "traceability": state["traceability_data"],
+                       "consistency": state.get("consistency_data", {})})
+    result = red_team_agent(text)
+    valid_ids = {item["id"] for item in state["requirements_data"]["requirements"]}
+    valid_ids |= {item["id"] for item in selected["components"] + selected["apis"] + selected["risks"]}
+    valid_ids |= {item["id"] for item in state["database_data"]["entities"]}
+    valid_ids |= {item["id"] for item in state["testing_data"]["test_cases"]}
+    for finding in result.findings:
+        finding.affected_artifact_ids = [item for item in finding.affected_artifact_ids if item in valid_ids]
+    state["red_team_data"] = result.model_dump()
+    state["red_team"] = red_team_markdown(result)
+    return state
+
+
 def reviewer_node(state):
     report = build_report(state)
     state["review"] = reviewer_agent(report[:5000])
@@ -168,6 +191,7 @@ def build_report(state):
         "## Novelty Analysis\n" + state.get("novelty", ""),
         "## Requirements Traceability\n" + state.get("traceability", ""),
         "## Test Plan\n" + state.get("testing", ""),
+        "## Red Team Architecture Review\n" + state.get("red_team", ""),
         "## Cross-Agent Consistency\n" + state.get("consistency", ""),
     ]
     return "\n\n".join(sections)
@@ -180,14 +204,14 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     nodes += [("planner", planner_node), ("architect", architect_node)]
     nodes += [("evaluation", evaluation_node), ("database", database_node), ("novelty", novelty_node)]
     nodes += [("testing", testing_node), ("traceability", traceability_node)]
-    nodes += [("consistency", consistency_node), ("reviewer", reviewer_node)]
+    nodes += [("red_team", red_team_node), ("consistency", consistency_node), ("reviewer", reviewer_node)]
 
     for name, node in nodes:
         graph.add_node(name, node)
     graph.set_entry_point("clarification")
 
     steps = ["clarification", "requirement", "conflicts", "planner", "architect", "evaluation"]
-    steps += ["database", "novelty", "testing", "traceability", "consistency", "reviewer"]
+    steps += ["database", "novelty", "testing", "traceability", "red_team", "consistency", "reviewer"]
     for first, second in zip(steps, steps[1:]):
         graph.add_edge(first, second)
     graph.add_edge("reviewer", END)
@@ -206,6 +230,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
         "novelty": result["novelty"],
         "traceability": result["traceability"],
         "testing": result["testing"],
+        "red_team": result["red_team"],
         "consistency": result["consistency"],
         "review": result["review"],
         "feedback": result["feedback"],
@@ -218,6 +243,7 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
             "database": result["database_data"],
             "testing": result["testing_data"],
             "traceability": result["traceability_data"],
+            "red_team": result["red_team_data"],
             "consistency": result["consistency_data"],
         },
     }
