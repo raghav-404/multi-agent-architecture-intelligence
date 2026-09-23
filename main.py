@@ -4,6 +4,7 @@ import re
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from groq import RateLimitError
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -122,6 +123,11 @@ def analyze(data: AnalyzeRequest, request: Request):
         result = run_workflow(data.project, data.project_type, data.depth, data.context)
         result["analysis_id"] = save_history(username, data.project, result)
         return result
+    except RateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail="Groq is still at its free-tier limit after an automatic retry. Wait one minute and try again.",
+        ) from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except Exception as error:
@@ -137,6 +143,11 @@ def refine(data: RefineRequest, request: Request):
     text += f"Current section:\n{data.current_text[:5000]}\nRequest: {data.instruction[:600]}"
     try:
         return {"text": refine_agent(text)}
+    except RateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail="Groq is still at its free-tier limit after an automatic retry. Wait one minute and try again.",
+        ) from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except Exception as error:

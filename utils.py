@@ -2,13 +2,14 @@ import json
 import os
 import hashlib
 import secrets
+import time
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 from html import escape
 
 from dotenv import load_dotenv
-from groq import BadRequestError, Groq
+from groq import BadRequestError, Groq, RateLimitError
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
@@ -16,6 +17,22 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 load_dotenv()
 DATA_DIR = "/tmp" if os.getenv("VERCEL") else "."
+
+
+def _groq_completion(client, **options):
+    """Retry one temporary Groq rate limit using its requested cooldown."""
+    for attempt in range(2):
+        try:
+            return client.chat.completions.create(**options)
+        except RateLimitError as error:
+            if attempt:
+                raise
+            value = error.response.headers.get("retry-after", "10").rstrip("s")
+            try:
+                wait = float(value)
+            except ValueError:
+                wait = 10
+            time.sleep(min(wait + 0.5, 30))
 
 
 def ask_groq(prompt, text):
@@ -27,7 +44,8 @@ def ask_groq(prompt, text):
     client = Groq(api_key=api_key, max_retries=0, timeout=45.0)
     model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
-    response = client.chat.completions.create(
+    response = _groq_completion(
+        client,
         model=model,
         messages=[
             {"role": "system", "content": prompt},
@@ -50,7 +68,8 @@ def ask_groq_json(prompt, text, schema, max_tokens=1800):
     for attempt in range(2):
         retry = "\nThis is a retry. Follow the schema exactly and keep every list concise." if attempt else ""
         try:
-            response = client.chat.completions.create(
+            response = _groq_completion(
+                client,
                 model=model,
                 messages=[
                     {"role": "system", "content": prompt},

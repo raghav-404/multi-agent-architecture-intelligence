@@ -138,7 +138,9 @@ SESSION_SECRET=replace_with_a_long_random_value
 ```
 
 MARIS uses `openai/gpt-oss-20b` for schema-constrained Groq responses by
-default. Both Groq models can be changed through environment variables.
+default. Both Groq models can be changed through environment variables. When
+the free-tier token window fills, MARIS follows Groq's cooldown and retries the
+request once automatically.
 
 ## Run
 
