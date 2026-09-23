@@ -1,10 +1,25 @@
-from models import TestPlan
-from prompts import TESTING_PROMPT
-from utils import ask_groq_json
+import json
+
+from models import TestCase, TestPlan
 
 
 def testing_agent(text):
-    return ask_groq_json(TESTING_PROMPT, text, TestPlan, 3000)
+    data = json.loads(text)
+    architecture = data["architecture"]
+    tests = []
+    for index, requirement in enumerate(data["requirements"]["requirements"], 1):
+        requirement_id = requirement["id"]
+        components = [item["id"] for item in architecture["components"]
+                      if requirement_id in item["supports_requirements"]]
+        apis = [item["id"] for item in architecture["apis"]
+                if requirement_id in item["supports_requirements"]]
+        tests.append(TestCase(
+            id=f"TC-{index:02d}",
+            test_type="acceptance" if requirement["category"] == "functional" else "edge_case",
+            title=f"Verify {requirement_id}", description=requirement["statement"],
+            requirement_ids=[requirement_id], component_ids=components, api_ids=apis,
+        ))
+    return TestPlan(test_cases=tests)
 
 
 def testing_markdown(data):

@@ -76,10 +76,10 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(result["analysis"]["architectures"]), 2)
         self.assertEqual(result["analysis"]["requirements"]["requirements"][0]["id"], "FR-01")
         self.assertEqual(result["analysis"]["red_team"]["findings"][0]["affected_artifact_ids"], ["A1-C1"])
-        self.assertEqual(len(result["analysis"]["versions"]), 2)
+        self.assertEqual(len(result["analysis"]["versions"]), 1)
         self.assertEqual(result["analysis"]["versions"][0]["requirement_coverage"], 50)
         self.assertEqual(result["analysis"]["versions"][0]["testing_coverage"], 50)
-        self.assertIn("Added quality tactics", result["refinement"])
+        self.assertIn("No refinement was required", result["refinement"])
         self.assertIn("A1: modular monolith option", result["architecture"])
 
 

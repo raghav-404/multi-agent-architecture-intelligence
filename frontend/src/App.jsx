@@ -218,7 +218,7 @@ function ProjectComposer({ form, setForm, onGenerate, running, stage, error }) {
           {error && <div className="inline-error" role="alert">{error}</div>}
           <div className="composer-actions">
             <button className="button primary" disabled={running}>{running ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}{running ? PROGRESS[Math.min(stage, 9)] : "Generate architecture report"}</button>
-            {!form.project && <button type="button" className="text-action" onClick={() => setForm({ project: "Build an online food delivery system for customers, restaurants, and delivery partners.", project_type: "Web App", depth: "Medium", context: "" })}>Use example</button>}
+            {!form.project && <button type="button" className="text-action" onClick={() => setForm({ project: "Build an online food delivery system for customers, restaurants, and delivery partners.", project_type: "Web App", depth: "Short", context: "" })}>Use example</button>}
           </div>
         </form>
       </section>
@@ -376,9 +376,9 @@ export default function App() {
   const [user, setUser] = useState(undefined);
   const [history, setHistory] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [form, setForm] = useState({ project: "", project_type: "General", depth: "Medium", context: "" });
+  const [form, setForm] = useState({ project: "", project_type: "General", depth: "Short", context: "" });
   const [result, setResult] = useState(null);
-  const [metadata, setMetadata] = useState({ type: "General", depth: "Medium" });
+  const [metadata, setMetadata] = useState({ type: "General", depth: "Short" });
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");

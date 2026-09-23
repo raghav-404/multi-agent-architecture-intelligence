@@ -3,22 +3,22 @@
 MARIS is a Software Engineering semester project that turns a software idea
 into an evaluated, traceable, and reviewable architecture report.
 
-It is not only a multi-agent chatbot. Groq agents generate and critique design
-artifacts, while deterministic Python rules score architectures, find supported
+It is not only a multi-agent chatbot. Groq agents generate the core design
+artifacts, while deterministic Python rules derive and critique alternatives, find supported
 conflicts, validate artifact references, calculate coverage, and analyze change
 impact.
 
 ## Main Features
 
 - Structured functional requirements, NFRs, user stories, and stable IDs
-- Two architecture alternatives for Short reports and three for other depths
+- Two architecture alternatives from one architecture-generation request
 - Deterministic architecture scoring with weights, evidence, and selection
 - Rule-based requirement conflict detection
 - Structured database designs and test cases
 - Cross-agent architecture, database, requirement, API, and test validation
 - Requirement-to-story/component/entity/API/test/risk traceability graph
 - Adversarial red-team architecture review
-- Bounded architecture refinement loop with V1/V2 comparison
+- Optional bounded architecture refinement with V1/V2 comparison
 - Architecture Decision Records (ADRs)
 - Traceability-based change-impact analysis
 - Rule-based failure and growth scenario analysis
@@ -28,12 +28,12 @@ impact.
 ## Design Principle
 
 ```text
-Groq agents
-  Generation, explanation, critique, and refinement
+Groq agents (3 calls in the default workflow)
+  Requirements, primary architecture, and database design
 
 Python rule engine
-  Scoring, validation, conflict rules, traceability,
-  coverage, impact traversal, and scenario rules
+  Alternative derivation, planning, testing, review, scoring,
+  validation, traceability, impact, and scenario rules
 ```
 
 This split makes the system easier to explain, test, and reproduce than a
@@ -45,26 +45,26 @@ workflow in which every decision is delegated to an LLM.
 Project Idea
     |
     v
-Clarification Agent
+Local Clarification
     |
 Requirements Agent --> Requirement Conflict Detector
     |
-Planner Agent
+Deterministic Planner
     |
-Competing Architecture Agent (2-3 options)
+Architecture Agent + Derived Alternative (2 options)
     |
 Deterministic Evaluation and Selection
     |
-Database Agent --> Testing Agent --> Traceability Engine
+Database Agent --> Deterministic Tests --> Traceability Engine
     |
-Red Team Agent --> Consistency Validator --> Reviewer
-    |                                      |
-    | fail                                 | pass
-    v                                      v
-Architecture Refinement -----------> ADRs and Final Report
+Deterministic Red Team --> Consistency Validator --> Reviewer
     |
-    +---- Re-evaluate (maximum 1-2 refinements)
+    v
+ADRs and Final Report
 ```
+
+Automatic refinement is disabled by default for Groq's free tier. Set
+`ENABLE_AUTO_REFINEMENT=true` to enable the bounded refinement loop.
 
 Change impact and scenarios run after a report has been saved:
 
@@ -94,7 +94,7 @@ score wins; simplicity is the tie-breaker.
 ## Project Structure
 
 ```text
-agents/                    Groq-backed generation and review functions
+agents/                    Groq-backed and deterministic role functions
     architect.py
     clarification.py
     database.py
@@ -138,9 +138,8 @@ SESSION_SECRET=replace_with_a_long_random_value
 ```
 
 MARIS uses `openai/gpt-oss-20b` for schema-constrained Groq responses by
-default. Both Groq models can be changed through environment variables. When
-the free-tier token window fills, MARIS follows Groq's cooldown and retries the
-request once automatically.
+default. The normal workflow makes only three Groq requests. When the free-tier
+token window fills, MARIS follows Groq's cooldown and retries once automatically.
 
 ## Run
 
@@ -172,7 +171,7 @@ npm run build
 ```
 
 The tests cover evaluation, conflicts, consistency, traceability, impact,
-scenarios, ADRs, bounded refinement, JSON storage, authentication, and API
+scenarios, ADRs, free-tier call reduction, JSON storage, authentication, and API
 integration.
 
 ## API
@@ -205,8 +204,7 @@ next production upgrade.
 The novelty is the combination of specialized LLM roles with deterministic
 software-engineering analysis. MARIS generates competing architectures,
 produces auditable selection evidence, detects cross-artifact contradictions,
-maintains a traversable traceability model, attacks the selected architecture,
-and measures refinement across versions.
+maintains a traversable traceability model, and reviews the selected architecture.
 
 The system deliberately does not generate full applications, predict real
 performance, deploy infrastructure, or require a graph database.

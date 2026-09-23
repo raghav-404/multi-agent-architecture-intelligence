@@ -19,8 +19,8 @@ Return markdown only.
 
 ARCHITECT_PROMPT = """
 You are an Architecture Agent.
-Generate the requested number of genuinely different architecture alternatives.
-Use A1, A2, A3 IDs, C1-style component IDs, and API1-style API IDs.
+Generate exactly one primary architecture matching the provided schema.
+Use the requested A1 ID, C1-style component IDs, and API1-style API IDs.
 Reference only requirement IDs supplied in the input. Prefer a modular monolith
 for simple projects and avoid proposing microservices without a clear reason.
 Include responsibilities, communication, database, technology stack, quality

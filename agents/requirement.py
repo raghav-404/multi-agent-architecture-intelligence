@@ -4,7 +4,7 @@ from utils import ask_groq_json
 
 
 def requirement_agent(project):
-    return ask_groq_json(REQUIREMENT_PROMPT, project, RequirementSet)
+    return ask_groq_json(REQUIREMENT_PROMPT, project, RequirementSet, 1400)
 
 
 def requirements_markdown(data):

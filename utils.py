@@ -42,7 +42,9 @@ def ask_groq(prompt, text):
         raise ValueError("Missing Groq API key. Add GROQ_API_KEY to your .env file.")
 
     client = Groq(api_key=api_key, max_retries=0, timeout=45.0)
-    model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    if model == "llama-3.1-8b-instant":
+        model = "openai/gpt-oss-20b"
 
     response = _groq_completion(
         client,
@@ -57,14 +59,14 @@ def ask_groq(prompt, text):
     return response.choices[0].message.content
 
 
-def ask_groq_json(prompt, text, schema, max_tokens=1800):
+def ask_groq_json(prompt, text, schema, max_tokens=1400, model=None):
     """Ask Groq for JSON and validate it with a Pydantic model."""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key or api_key == "your_groq_api_key_here":
         raise ValueError("Missing Groq API key. Add GROQ_API_KEY to your .env file.")
 
     client = Groq(api_key=api_key, max_retries=0, timeout=45.0)
-    model = os.getenv("GROQ_STRUCTURED_MODEL", "openai/gpt-oss-20b")
+    model = model or os.getenv("GROQ_STRUCTURED_MODEL", "openai/gpt-oss-20b")
     for attempt in range(2):
         retry = "\nThis is a retry. Follow the schema exactly and keep every list concise." if attempt else ""
         try:
@@ -77,6 +79,7 @@ def ask_groq_json(prompt, text, schema, max_tokens=1800):
                 ],
                 temperature=0.2,
                 max_completion_tokens=max_tokens,
+                reasoning_effort="low",
                 response_format={
                     "type": "json_schema",
                     "json_schema": {

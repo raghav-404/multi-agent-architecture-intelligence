@@ -1,21 +1,38 @@
 import json
 
-from models import ArchitectureOption, ArchitectureSet
+from models import ArchitectureOption, ArchitectureSet, QualityTactic
 from prompts import ARCHITECT_PROMPT, ARCHITECT_REFINE_PROMPT
 from utils import ask_groq_json
 
 
 def architect_agent(project, requirements, option_count):
-    styles = ["modular monolith", "serverless", "service-based architecture"]
-    options = []
-    for index in range(option_count):
-        text = f"{project}\nCreate alternative A{index + 1} of {option_count}. "
-        text += f"Prefer {styles[index]} when suitable, while remaining domain-specific.\n"
-        text += "Use 3-5 components, up to 5 APIs, up to 5 tactics, and up to 3 risks.\n"
-        text += "Requirements:\n" + json.dumps(requirements)
-        option = ask_groq_json(ARCHITECT_PROMPT, text, ArchitectureOption, 3500)
-        options.append(normalize_ids(option, index + 1))
+    brief = [{key: item[key] for key in ["id", "statement", "priority", "quality_attribute"]}
+             for item in requirements["requirements"]]
+    text = f"{project}\nCreate A1 as a domain-specific modular monolith.\n"
+    text += "Use 3-4 components, up to 4 APIs, 3 tactics, and up to 2 risks.\n"
+    text += "Requirements:\n" + json.dumps(brief)
+    primary = ask_groq_json(ARCHITECT_PROMPT, text, ArchitectureOption, 1700)
+    options = [normalize_ids(primary, 1)]
+    if option_count > 1:
+        options.append(serverless_alternative(primary))
     return ArchitectureSet(options=options)
+
+
+def serverless_alternative(primary):
+    option = primary.model_copy(deep=True)
+    option.name = "Managed Serverless Alternative"
+    option.style = "serverless"
+    option.summary = "The same domain responsibilities run as managed functions and services."
+    for component in option.components:
+        component.communication = "HTTPS and managed events"
+    option.technology_stack = ["Managed functions", "API Gateway", primary.database,
+                               "Managed authentication"]
+    option.quality_tactics.append(QualityTactic(
+        attribute="scalability", tactic="automatic function scaling",
+        evidence="Managed functions scale independently with demand."))
+    option.advantages = ["Low operational work", "Automatic scaling", "Usage-based cost"]
+    option.disadvantages = ["Vendor dependency", "Cold-start latency", "Harder local testing"]
+    return normalize_ids(option, 2)
 
 
 def normalize_ids(option, number):
@@ -47,6 +64,6 @@ def architecture_markdown(data):
 
 
 def refine_architecture(context, current):
-    result = ask_groq_json(ARCHITECT_REFINE_PROMPT, context, type(current), 3000)
+    result = ask_groq_json(ARCHITECT_REFINE_PROMPT, context, type(current), 1800)
     number = int(current.id.removeprefix("A"))
     return normalize_ids(result, number)

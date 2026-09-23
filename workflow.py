@@ -1,4 +1,5 @@
 import json
+import os
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -84,7 +85,7 @@ def conflict_node(state):
 
 
 def planner_node(state):
-    state["plan"] = planner_agent(state["details"])
+    state["plan"] = planner_agent(state["details"], state["requirements_data"])
     return state
 
 
@@ -108,8 +109,13 @@ def database_node(state):
     evaluation = EvaluationResult.model_validate(state["evaluation_data"])
     selected = next(item for item in state["architecture_options"]
                     if item["id"] == evaluation.selected_architecture_id)
-    text = state["details"] + "\nRequirements:\n" + json.dumps(state["requirements_data"])
-    text += "\nSelected architecture:\n" + json.dumps(selected)
+    requirements = [{key: item[key] for key in ["id", "statement", "priority"]}
+                    for item in state["requirements_data"]["requirements"]]
+    architecture = {"database": selected["database"], "components": [
+        {key: item[key] for key in ["id", "name", "supports_requirements"]}
+        for item in selected["components"]]}
+    text = state["project"] + "\nRequirements:\n" + json.dumps(requirements)
+    text += "\nSelected architecture:\n" + json.dumps(architecture)
     result = database_agent(text)
     state["database_data"] = result.model_dump()
     state["database"] = database_markdown(result)
@@ -317,8 +323,9 @@ def run_workflow(project, project_type="General", depth="Short", context=""):
     graph.add_edge("finalize", END)
 
     details = f"Project: {project}\nType: {project_type}\nDepth: {depth}\nContext: {context[:2000]}"
-    option_count = 2 if depth == "Short" else 3
-    max_iterations = 1 if depth == "Short" else 2
+    option_count = 2
+    auto_refine = os.getenv("ENABLE_AUTO_REFINEMENT", "false").lower() == "true"
+    max_iterations = (1 if depth == "Short" else 2) if auto_refine else 0
     result = graph.compile().invoke({
         "project": project, "details": details, "option_count": option_count,
         "iteration": 0, "max_iterations": max_iterations,

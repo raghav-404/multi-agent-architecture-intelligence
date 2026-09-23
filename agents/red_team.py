@@ -1,10 +1,22 @@
-from models import RedTeamReview
-from prompts import RED_TEAM_PROMPT
-from utils import ask_groq_json
+import json
+
+from models import RedTeamFinding, RedTeamReview
 
 
 def red_team_agent(text):
-    return ask_groq_json(RED_TEAM_PROMPT, text, RedTeamReview, 2200)
+    data = json.loads(text)
+    findings = []
+    for index, risk in enumerate(data["architecture"]["risks"], 1):
+        description = risk["description"]
+        severe = any(word in description.lower() for word in ["security", "data loss", "payment", "auth"])
+        findings.append(RedTeamFinding(
+            id=f"RT-{index:02d}", severity="high" if severe else "medium",
+            title=f"Architecture risk {risk['id']}", description=description,
+            evidence=risk["id"], affected_artifact_ids=risk["component_ids"],
+            recommendation="Add a measurable mitigation and verify it with a failure test.",
+        ))
+    summary = f"Deterministic review found {len(findings)} documented architecture risk(s)."
+    return RedTeamReview(summary=summary, findings=findings)
 
 
 def red_team_markdown(review):
