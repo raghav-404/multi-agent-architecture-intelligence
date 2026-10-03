@@ -1,6 +1,6 @@
 # Multi-Agent Architecture Intelligence System
 
-A simple Software Engineering semester project that uses multiple AI agents to
+A multi-agent system that uses multiple AI agents to
 turn a project idea into an initial software architecture report.
 
 ## Description
